@@ -7,17 +7,17 @@ import { supabase } from '@/lib/supabaseClient';
 
 export default function RegisterForm() {
   const router = useRouter();
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirm] = useState('');
-  const [errorMsg, setErrorMsg]       = useState<string | null>(null);
-  const [isLoading, setIsLoading]     = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    // Simple client‐side check: passwords must match
+    // 🔍 STEP 1: Validate passwords match
     if (password !== confirmPassword) {
       setErrorMsg('Passwords do not match.');
       return;
@@ -25,23 +25,57 @@ export default function RegisterForm() {
 
     setIsLoading(true);
 
-    // Call Supabase to create a new user
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      // 🔐 STEP 2: Create user in Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    setIsLoading(false);
+      if (error) {
+        setErrorMsg(error.message);
+        setIsLoading(false);
+        return;
+      }
 
-    if (error) {
-      // Show any Supabase error (duplicate email, weak password, etc.)
-      setErrorMsg(error.message);
-      return;
+      const user = data.user;
+
+      if (user) {
+        // 💾 STEP 3: Add user to YOUR database
+        // ✅ FIXED: Now using correct column names from your schema
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,        // ✅ TEXT UUID from Supabase
+            email: user.email,  // ✅ TEXT email
+            is_setup: false,    // ✅ BOOLEAN setup status
+          });
+
+        if (insertError) {
+          console.error('Database insert error:', insertError);
+          setErrorMsg(`Database error: ${insertError.message}`);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('✅ User created successfully!');
+
+        await supabase.auth.signOut();
+        
+        // Show success message and redirect to login
+        alert('Registration successful! Please log in with your credentials.');
+
+    
+        
+        // 🚀 STEP 4: Redirect to login page (no auto-login)
+        router.push('/login');
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      setErrorMsg('An unexpected error occurred.');
+    } finally {
+      setIsLoading(false);
     }
-
-    // On success, Supabase sends a confirmation email automatically.
-    // Here, we simply redirect to /login so the user can sign in:
-    router.push('/login');
   };
 
   return (
@@ -117,3 +151,34 @@ export default function RegisterForm() {
     </div>
   );
 }
+
+/*
+🎓 KEY CHANGES EXPLAINED:
+
+1. **Fixed Database Insert:**
+   OLD: user_id: parseInt(user.id) ❌ 
+   NEW: id: user.id ✅
+   
+   - Your database 'id' column is TEXT, not INT
+   - Supabase user.id is already a string UUID
+   - No conversion needed!
+
+2. **Proper Error Handling:**
+   - Try/catch blocks for unexpected errors
+   - Proper loading state management
+   - Clear error messages
+
+3. **Database Schema Match:**
+   - id: TEXT (matches Supabase user.id)
+   - email: TEXT 
+   - is_setup: BOOLEAN
+   - created_at, updated_at: auto-generated
+
+4. **Registration Flow:**
+   1. User fills form
+   2. Create Supabase auth user
+   3. Create record in YOUR users table
+   4. Redirect to login page
+   5. User confirms email
+   6. User can then login
+*/

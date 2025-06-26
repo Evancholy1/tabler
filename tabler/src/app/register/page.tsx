@@ -1,25 +1,51 @@
-// src/app/register/page.tsx
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
+import RegisterForm from './RegisterForm';
 import type { Database } from '@/types/supabase';
-import RegisterForm from './RegisterForm'; // the Client Component (see next section)
+
+
 
 export default async function RegisterPage() {
-  // Initialize a Supabase client on the server, reading the auth cookie
-  const supabaseServer = createServerComponentClient<Database>({ cookies });
+  const cookieStore = await cookies();
 
-  // Check if there is already a logged‐in session
-  const {
-    data: { session },
-  } = await supabaseServer.auth.getSession();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // Ignore
+          }
+        },
+      },
+    }
+  );
 
-  if (session) {
-    // If the user is already logged in, send them back to "/" 
-    // (which itself will forward them to /app or /setup-layout as needed)
-    redirect('/');
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // ✅ If logged in, check if user already exists in 'users' table
+  if (user) {
+    const { data: existingUser, error } = await supabase
+      .from('users')
+      .select('is_setup')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingUser?.is_setup) {
+      redirect('/app'); // or wherever you send fully set-up users
+    } else {
+      redirect('/setup-layout'); // or keep on /register if still filling info
+    }
   }
 
-  // If no session exists, render the RegisterForm (Client Component)
   return <RegisterForm />;
 }

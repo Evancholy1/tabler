@@ -1,21 +1,41 @@
 // src/app/login/page.tsx
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import LoginForm from './LoginForm'; // a pure Client Component for the form
+import { createServerClient } from '@supabase/ssr';
+import LoginForm from './LoginForm';
 import type { Database } from '@/types/supabase';
 
 export default async function LoginPage() {
-  const supabaseServer = createServerComponentClient<Database>({ cookies });
-  const {
-    data: { session },
-  } = await supabaseServer.auth.getSession();
+  const cookieStore = await cookies();
 
-  // If already logged in, send them to `/` (which will forward to /app or /setup-layout)
-  if (session) {
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // Ignore error from Server Component context
+          }
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
     redirect('/');
   }
 
-  // Otherwise, render the login form (Client Component)
   return <LoginForm />;
 }
