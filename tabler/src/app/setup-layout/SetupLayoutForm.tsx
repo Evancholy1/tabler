@@ -130,28 +130,7 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
         throw sectionsError;
       }
 
-      // 3. Create tables (populate the grid)
-      const tablesToInsert = [];
-      for (let x = 1; x <= tablesWidth; x++) {
-        for (let y = 1; y <= tablesLength; y++) {
-          tablesToInsert.push({
-            layout_id: layoutData.id,
-            section_id: null, // Will be assigned later in the actual layout
-            x_pos: x,
-            y_pos: y,
-            is_taken: false,
-            current_party_size: 0,
-          });
-        }
-      }
-
-      const { error: tablesError } = await supabase
-        .from('tables')
-        .insert(tablesToInsert);
-
-      if (tablesError) {
-        throw tablesError;
-      }
+      
 
       // 4. Mark user as setup complete
       const { error: userUpdateError } = await supabase
