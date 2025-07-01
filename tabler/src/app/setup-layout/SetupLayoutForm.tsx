@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import ColorPicker from './components/ColorPicker';
+
 
 // Color options for sections
 const SECTION_COLORS = [
@@ -231,46 +233,23 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
 
           {/* Section Names and Colors */}
           {sections.map((section, index) => (
-            <div key={section.id} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Section {section.id} Name
-                </label>
+            <div key={section.id}>
+              <label className="block text-sm font-medium mb-2">
+                Section {section.id} Name
+              </label>
+              <div className="flex items-center gap-3">
+                <ColorPicker
+                  color={section.color}
+                  onChange={(color) => updateSection(section.id, 'color', color)}
+                  sectionName={section.name}
+                />
                 <input
                   type="text"
                   value={section.name}
                   onChange={(e) => updateSection(section.id, 'name', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
                   placeholder={`Section ${section.id}`}
                 />
-              </div>
-
-              {/* Color Picker */}
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Section {section.id} Color
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {SECTION_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => updateSection(section.id, 'color', color.value)}
-                      className={`
-                        w-12 h-12 rounded-md border-2 transition-all
-                        ${section.color === color.value 
-                          ? 'border-gray-800 scale-110' 
-                          : 'border-gray-300 hover:border-gray-500'
-                        }
-                        ${color.bg}
-                      `}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  Selected: {SECTION_COLORS.find(c => c.value === section.color)?.name || 'Custom'}
-                </div>
               </div>
             </div>
           ))}
