@@ -165,22 +165,16 @@ export default function LayoutEditor({
     return cells;
   };
 
-  const clearTableAssignment = (tableId: string) => {
+
+const deleteTable = (tableId: string) => {
   setTables(prevTables =>
-    prevTables.map(table =>
-      table.id === tableId
-        ? { ...table, name: null, section_id: null }
-        : table
-    )
+    prevTables.filter(table => table.id !== tableId)
   );
 
-  // Also update selectedTable state if needed
   if (selectedTable?.id === tableId) {
-    setSelectedTable(prev => prev ? { ...prev, name: null, section_id: null } : null);
+    setSelectedTable(null);
   }
 };
-
-
   
 
   return (
@@ -286,11 +280,11 @@ export default function LayoutEditor({
 
                   {/* Delete Button */}
                   <button
-                    onClick={() => clearTableAssignment(selectedTable.id)}
-                    className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                  >
-                    Clear Table
-                  </button>
+                    onClick={() => {if (window.confirm("Are you sure you want to delete this table?")) {
+                      deleteTable(selectedTable.id);
+                      }
+                    }}
+                  className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">Delete Table</button>
 
                   <div className="text-xs text-gray-500">
                     <div>Position: {selectedTable.x_pos}, {selectedTable.y_pos}</div>
