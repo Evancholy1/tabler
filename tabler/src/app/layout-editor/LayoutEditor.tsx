@@ -166,6 +166,7 @@ export default function LayoutEditor({
   };
 
 
+// remove table from array
 const deleteTable = (tableId: string) => {
   setTables(prevTables =>
     prevTables.filter(table => table.id !== tableId)
