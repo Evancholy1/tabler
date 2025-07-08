@@ -61,8 +61,18 @@ export default async function RootPageGatekeeper() {
     }
   
     if (!userData.is_setup) {
-      console.log('➡️ Setup incomplete, redirecting to /setup-layout');
-      redirect('/setup-layout');
+      // Check if they have a layout (completed setup form)
+      const { data: layout } = await supabase
+        .from('layouts')
+        .select('id')
+        .eq('owner_user_id', user.id)
+        .single();
+        
+      if (!layout) {
+        redirect('/setup-layout');  // No layout = need setup form
+      } else {
+        redirect('/layout-editor'); // Has layout = need to complete editor
+      }
     }
   
     console.log('➡️ All good, redirecting to /app');

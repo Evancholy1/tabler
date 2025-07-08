@@ -130,20 +130,9 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
         throw sectionsError;
       }
 
-      
 
-      // 4. Mark user as setup complete
-      const { error: userUpdateError } = await supabase
-        .from('users')
-        .update({ is_setup: true })
-        .eq('id', currentUserId);
-
-      if (userUpdateError) {
-        throw userUpdateError;
-      }
-
-      // 5. Success! Redirect to main app
-      router.push('/app');
+      // 5. Success! Redirect to next part of setup 
+      router.push('/layout-editor');
 
     } catch (error: any) {
       console.error('Setup error:', error);
