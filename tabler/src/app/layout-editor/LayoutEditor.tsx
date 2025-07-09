@@ -3,6 +3,9 @@
 
 import { useState } from 'react';
 import { Layout, Section, Table, LayoutEditorProps } from './types/layout';
+import { SupabaseAuthClient } from '@supabase/supabase-js/dist/module/lib/SupabaseAuthClient';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation'
 
 export default function LayoutEditor({ 
   layout, 
@@ -10,6 +13,7 @@ export default function LayoutEditor({
   initialTables 
 }: LayoutEditorProps) {
   
+  const router = useRouter()
   // State to track all tables (starts with tables from database)
   const [tables, setTables] = useState<Table[]>(initialTables);
   
@@ -18,6 +22,42 @@ export default function LayoutEditor({
 
   const [isEditingTable, setIsEditingTable] = useState(false); 
   const [editingTableName, setEditingTableName] = useState('');
+
+  const [isLoading, setIsLoading] = useState(false); 
+
+  // saves all tables you created to database 
+  const handleConfirmSetup = async () => {
+    setIsLoading(true);
+    
+    try {
+      // 1. Save all tables to database
+      await saveAllTables();
+      
+      // 2. Mark user as setup complete
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({ is_setup: true })
+          .eq('id', user.id);
+  
+        if (userUpdateError) {
+          console.error('Error updating user setup status:', userUpdateError);
+          throw userUpdateError;
+        }
+      }
+  
+      // 3. Redirect to main app
+      console.log('Setup completed successfully!');
+      router.push('/app');
+      
+    } catch (error) {
+      console.error('Error confirming setup:', error);
+      alert('Failed to save layout. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Function to add a new table at a specific position
   const addTable = (x: number, y: number) => {
@@ -112,6 +152,7 @@ export default function LayoutEditor({
     }
   };
 
+
   //function to assign a table to a section 
 
   const assignTableToSection = (tableId: string, sectionId: string | null) => {
@@ -165,6 +206,55 @@ export default function LayoutEditor({
     return cells;
   };
 
+  const saveAllTables = async () => {
+    try {
+      const unsavedTables = tables.filter(table => table.id.startsWith('temp-'))
+
+      if (unsavedTables.length === 0) {
+        console.log('No tables to save');
+        return;
+    }
+
+    const tablesToSave = unsavedTables.map(table => ({
+      layout_id: table.layout_id,
+      section_id: table.section_id,
+      x_pos: table.x_pos,
+      y_pos: table.y_pos,
+      name: table.name,
+      is_taken: table.is_taken,
+      current_party_size: table.current_party_size,
+    }));
+
+    const { data: savedTables, error } = await supabase
+      .from('tables')
+      .insert(tablesToSave)
+      .select();
+
+    if (error) {
+      console.error('Error saving tables:', error);
+      return;
+    }
+    setTables(prevTables => {
+      const newTables = [...prevTables];
+      
+      // Replace temp tables with saved tables
+      unsavedTables.forEach((tempTable, index) => {
+        const tempIndex = newTables.findIndex(t => t.id === tempTable.id);
+        if (tempIndex !== -1 && savedTables[index]) {
+          newTables[tempIndex] = savedTables[index];
+        }
+      });
+      
+      return newTables;
+  });
+
+    console.log('All tables saved successfully!');
+    
+  } catch (error) {
+    console.error('Failed to save tables:', error);
+  }
+  };  
+
 
 // remove table from array
 const deleteTable = (tableId: string) => {
@@ -176,7 +266,7 @@ const deleteTable = (tableId: string) => {
     setSelectedTable(null);
   }
 };
-  
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 rounded-2xl border">
@@ -293,6 +383,21 @@ const deleteTable = (tableId: string) => {
                   </div>
                 </div>
               )}
+
+            <div className="mt-6 pt-4 border-t">
+                  <button
+                    onClick={handleConfirmSetup}
+                    disabled={isLoading}
+                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-wait font-medium transition-colors"
+                  >
+                    {isLoading ? 'Saving Layout...' : 'Confirm Setup'}
+                  </button>
+                  
+                  {/* Optional: Show table count */}
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    {tables.length} table{tables.length !== 1 ? 's' : ''} created
+                  </div>
+                </div>
             </div>
           </div>
         </div>
