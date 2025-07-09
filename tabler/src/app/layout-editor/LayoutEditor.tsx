@@ -114,7 +114,7 @@ export default function LayoutEditor({
     
     if (table) {
       // There's a table at this position
-      const displayName = table.name || `NA`; 
+      const displayName = table.name || `+`; 
       const backgroundColor = getSectionColor(table.section_id)
       const isSelected = selectedTable?.id === table.id;
 
@@ -136,7 +136,9 @@ export default function LayoutEditor({
         </span>
       </div>
       );
-    } else {
+    } 
+
+     else {
       // Empty cell - click to add table
       return (
         <div
@@ -204,7 +206,6 @@ export default function LayoutEditor({
     return cells;
   };
 
-
   const saveAllTables = async () => {
     try {
       const unsavedTables = tables.filter(table => table.id.startsWith('temp-'))
@@ -254,7 +255,18 @@ export default function LayoutEditor({
   }
   };  
 
-  
+
+// remove table from array
+const deleteTable = (tableId: string) => {
+  setTables(prevTables =>
+    prevTables.filter(table => table.id !== tableId)
+  );
+
+  if (selectedTable?.id === tableId) {
+    setSelectedTable(null);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 rounded-2xl border">
@@ -356,6 +368,14 @@ export default function LayoutEditor({
                       ))}
                     </select>
                   </div>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => {if (window.confirm("Are you sure you want to delete this table?")) {
+                      deleteTable(selectedTable.id);
+                      }
+                    }}
+                  className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">Delete Table</button>
 
                   <div className="text-xs text-gray-500">
                     <div>Position: {selectedTable.x_pos}, {selectedTable.y_pos}</div>
