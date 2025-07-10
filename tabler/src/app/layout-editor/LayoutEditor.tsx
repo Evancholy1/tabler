@@ -6,6 +6,7 @@ import { Layout, Section, Table, LayoutEditorProps } from './types/layout';
 import { SupabaseAuthClient } from '@supabase/supabase-js/dist/module/lib/SupabaseAuthClient';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react';
 
 export default function LayoutEditor({ 
   layout, 
@@ -23,7 +24,13 @@ export default function LayoutEditor({
   const [isEditingTable, setIsEditingTable] = useState(false); 
   const [editingTableName, setEditingTableName] = useState('');
 
-  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);
+
+ 
+  const [isCreatingTable, setIsCreatingTable] = useState(false);
+  const [newTablePosition, setNewTablePosition] = useState<{x: number, y: number} | null>(null);
+  const [newTableName, setNewTableName] = useState('');
+  const [newTableSection, setNewTableSection] = useState<string>('');
 
   // saves all tables you created to database 
   const handleConfirmSetup = async () => {
@@ -59,30 +66,55 @@ export default function LayoutEditor({
     }
   };
 
-  // Function to add a new table at a specific position
-  const addTable = (x: number, y: number) => {
+  //
+  const startTableCreation = (x: number, y: number) => {
     // Check if table already exists at this position
     const existingTable = tables.find(t => t.x_pos === x && t.y_pos === y);
     if (existingTable) {
       console.log('Table already exists at this position');
       return;
     }
+  
+    // Start creation mode
+    setNewTablePosition({ x, y });
+    setNewTableName('');
+    setNewTableSection('');
+    setIsCreatingTable(true);
+    setSelectedTable(null); // Clear any selected table
+  };
 
+  const confirmTableCreation = () => {
+    if (!newTablePosition || !newTableName.trim() || !newTableSection) {
+      alert('Please provide a table name and select a section');
+      return;
+    }
+  
     // Create new table object
     const newTable: Table = {
-      id: `temp-${Date.now()}`, // Temporary ID until saved to database
+      id: `temp-${Date.now()}`,
       layout_id: layout.id,
-      section_id: null,         // Unassigned initially
-      x_pos: x,
-      y_pos: y,
-      name: null,               // No name initially
+      section_id: newTableSection,
+      x_pos: newTablePosition.x,
+      y_pos: newTablePosition.y,
+      name: newTableName.trim(),
       is_taken: false,
       current_party_size: 0,
     };
-
+  
     // Add to tables array
     setTables(prevTables => [...prevTables, newTable]);
+    
+    // Reset creation state
+    cancelTableCreation();
   };
+
+  const cancelTableCreation = () => {
+    setIsCreatingTable(false);
+    setNewTablePosition(null);
+    setNewTableName('');
+    setNewTableSection('');
+  };
+
 
   // Function to check if a table exists at a position
   const getTableAt = (x: number, y: number): Table | undefined => {
@@ -90,6 +122,10 @@ export default function LayoutEditor({
   };
 
   const startEditingTable = (table: Table) => {
+    if (isCreatingTable) {
+      cancelTableCreation();
+    }
+
     setSelectedTable(table); 
     setEditingTableName(table.name || ''); 
     setIsEditingTable(true); 
@@ -111,40 +147,55 @@ export default function LayoutEditor({
   // Function to render a single grid cell
   const renderCell = (x: number, y: number) => {
     const table = getTableAt(x, y);
+    const isCreationPosition = newTablePosition?.x === x && newTablePosition?.y === y;
     
     if (table) {
       // There's a table at this position
       const displayName = table.name || `+`; 
       const backgroundColor = getSectionColor(table.section_id)
       const isSelected = selectedTable?.id === table.id;
-
-
+  
       return (
         <div
           key={`${x}-${y}`}
           className={`
             w-16 h-16 border-2 flex items-center justify-center cursor-pointer rounded-lg transition-all
-            ${isSelected ? 'border-Black-500 shadow-lg' : 'border-gray-300'}
+            ${isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-300'}
             hover:shadow-md
           `}
-          style = {{ backgroundColor }}
-          onClick = {() => setSelectedTable(table)}
-          onDoubleClick={() => startEditingTable(table)}
+          style={{ backgroundColor }}
+          onClick={() => {
+            setSelectedTable(table);
+            startEditingTable(table); // Immediately enter editing mode
+          }}
         >
           <span className="text-xs font-medium text-center px-1 truncate">
-          {displayName}
-        </span>
-      </div>
+            {displayName}
+          </span>
+        </div>
       );
-    } 
-
-     else {
-      // Empty cell - click to add table
+    } else if (isCreationPosition) {
+      // Position being created - show preview
+      const previewColor = newTableSection ? getSectionColor(newTableSection) : '#f3f4f6';
+      
+      return (
+        <div
+          key={`${x}-${y}`}
+          className="w-16 h-16 border-2 border-dashed border-blue-500 flex items-center justify-center rounded-lg transition-all"
+          style={{ backgroundColor: previewColor, opacity: 0.7 }}
+        >
+          <span className="text-xs font-medium text-center px-1">
+            {newTableName || '?'}
+          </span>
+        </div>
+      );
+    } else {
+      // Empty cell - click to start creation
       return (
         <div
           key={`${x}-${y}`}
           className="w-16 h-16 border border-gray-300 bg-gray-50 flex items-center justify-center cursor-pointer hover:bg-gray-200 rounded-lg transition-colors"
-          onClick={() => addTable(x, y)}
+          onClick={() => startTableCreation(x, y)}
         >
           <span className="text-gray-400 text-xs">+</span>
         </div>
@@ -293,6 +344,7 @@ const deleteTable = (tableId: string) => {
           </div>
 
           {/* Sidebar */}
+          {/* Sidebar */}
           <div className="w-64">
             <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="text-lg font-semibold mb-4">Sections</h3>
@@ -307,60 +359,33 @@ const deleteTable = (tableId: string) => {
                 </div>
               ))}
 
-              {/* Table Details Panel */}
-              {selectedTable && (
+              {/* Table Creation Panel */}
+              {isCreatingTable && newTablePosition && (
                 <div className="mt-6 pt-4 border-t">
-                  <h4 className="font-semibold mb-3">Selected Table</h4>
+                  <h4 className="font-semibold mb-3">Create New Table</h4>
                   
-                  {/* Table Name Editing */}
+                  {/* Table Name Input */}
                   <div className="mb-3">
                     <label className="block text-sm font-medium mb-1">Table Name</label>
-                    {isEditingTable ? (
-                      <div className="flex gap-1">
-                        <input
-                          type="text"
-                          value={editingTableName}
-                          onChange={(e) => setEditingTableName(e.target.value)}
-                          className="flex-1 px-2 py-1 border rounded text-sm"
-                          placeholder="Enter table name"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveTableName();
-                            if (e.key === 'Escape') cancelEditing();
-                          }}
-                        />
-                        <button
-                          onClick={saveTableName}
-                          className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={cancelEditing}
-                          className="px-2 py-1 bg-gray-500 text-white rounded text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <div 
-                        className="px-2 py-1 border rounded text-sm cursor-pointer hover:bg-gray-50"
-                        onClick={() => startEditingTable(selectedTable)}
-                      >
-                        {selectedTable.name || 'Click to name table'}
-                      </div>
-                    )}
+                    <input
+                      type="text"
+                      value={newTableName}
+                      onChange={(e) => setNewTableName(e.target.value)}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                      placeholder="Enter table name"
+                      autoFocus
+                    />
                   </div>
 
                   {/* Section Assignment */}
-                  <div className="mb-3">
+                  <div className="mb-4">
                     <label className="block text-sm font-medium mb-1">Section</label>
                     <select
-                      value={selectedTable.section_id || ''}
-                      onChange={(e) => assignTableToSection(selectedTable.id, e.target.value || null)}
+                      value={newTableSection}
+                      onChange={(e) => setNewTableSection(e.target.value)}
                       className="w-full px-2 py-1 border rounded text-sm"
                     >
-                      <option value="">Unassigned</option>
+                      <option value="">Select section</option>
                       {sections.map(section => (
                         <option key={section.id} value={section.id}>
                           {section.name}
@@ -369,35 +394,143 @@ const deleteTable = (tableId: string) => {
                     </select>
                   </div>
 
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => {if (window.confirm("Are you sure you want to delete this table?")) {
-                      deleteTable(selectedTable.id);
-                      }
-                    }}
-                  className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">Delete Table</button>
+                  {/* Position Info */}
+                  <div className="mb-4 text-xs text-gray-500">
+                    Position: {newTablePosition.x}, {newTablePosition.y}
+                  </div>
 
-                  <div className="text-xs text-gray-500">
-                    <div>Position: {selectedTable.x_pos}, {selectedTable.y_pos}</div>
-                    <div>Double-click table to edit name</div>
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={confirmTableCreation}
+                      disabled={!newTableName.trim() || !newTableSection}
+                      className="flex-1 bg-blue-500 text-white py-2 px-2 rounded-lg hover:bg-blue-700 disabled:opacity-100 disabled:cursor-not-allowed font-medium transition-colors text-sm"
+                    >
+                      Create
+                    </button>
+                    
+                    <button
+                      onClick={cancelTableCreation}
+                      className="flex-1 bg-red-500 text-white py-2 px-2 rounded-lg hover:bg-gray-600 font-medium transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
 
-            <div className="mt-6 pt-4 border-t">
-                  <button
-                    onClick={handleConfirmSetup}
-                    disabled={isLoading}
-                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-wait font-medium transition-colors"
-                  >
-                    {isLoading ? 'Saving Layout...' : 'Confirm Setup'}
-                  </button>
-                  
-                  {/* Optional: Show table count */}
-                  <div className="mt-2 text-xs text-gray-500 text-center">
-                    {tables.length} table{tables.length !== 1 ? 's' : ''} created
+              {/* Table View Panel - when selected but not editing */}
+            {selectedTable && !isCreatingTable && !isEditingTable && (
+              <div className="mt-6 pt-4 border-t">
+                <h4 className="font-semibold mb-3">Table Info</h4>
+                
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">Table Name</label>
+                  <div className="px-2 py-1 border rounded text-sm bg-gray-50">
+                    {selectedTable.name || 'Unnamed Table'}
                   </div>
                 </div>
+
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">Section</label>
+                  <div className="px-2 py-1 border rounded text-sm bg-gray-50">
+                    {sections.find(s => s.id === selectedTable.section_id)?.name || 'Unassigned'}
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  <div>Position: {selectedTable.x_pos}, {selectedTable.y_pos}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Table Editing Panel - when selected and editing */}
+            {selectedTable && !isCreatingTable && isEditingTable && (
+              <div className="mt-6 pt-4 border-t">
+                <h4 className="font-semibold mb-3">Edit Table</h4>
+                
+                {/* Table Name Editing */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">Table Name</label>
+                  <input
+                    type="text"
+                    value={editingTableName}
+                    onChange={(e) => setEditingTableName(e.target.value)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                    placeholder="Enter table name"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveTableName();
+                      if (e.key === 'Escape') cancelEditing();
+                    }}
+                  />
+                </div>
+
+                {/* Section Assignment */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Section</label>
+                  <select
+                    value={selectedTable.section_id || ''}
+                    onChange={(e) => assignTableToSection(selectedTable.id, e.target.value || null)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  >
+                    <option value="">Unassigned</option>
+                    {sections.map(section => (
+                      <option key={section.id} value={section.id}>
+                        {section.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={saveTableName}
+                    className="flex-1 bg-blue-600 text-white py-2 px-2 rounded-lg hover:bg-green-700 font-medium transition-colors text-sm"
+                  >
+                    Save
+                  </button>
+                  
+                  <button
+                    onClick={cancelEditing}
+                    className="flex-1 bg-gray-500 text-white py-2 px-2 rounded-lg hover:bg-gray-600 font-medium transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this table?")) {
+                      deleteTable(selectedTable.id);
+                    }
+                  }}
+                  className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 font-medium transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                 <Trash2 size={16} />
+                 Delete Table
+                </button>
+
+                <div className="text-xs text-gray-500">
+                  <div>Position: {selectedTable.x_pos}, {selectedTable.y_pos}</div>
+                </div>
+              </div>
+            )}
+
+              <div className="mt-6 pt-4 border-t">
+                <button
+                  onClick={handleConfirmSetup}
+                  disabled={isLoading}
+                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-wait font-medium transition-colors"
+                >
+                  {isLoading ? 'Saving Layout...' : 'Confirm Setup'}
+                </button>
+                
+                <div className="mt-2 text-xs text-gray-500 text-center">
+                  {tables.length} table{tables.length !== 1 ? 's' : ''} created
+                </div>
+              </div>
             </div>
           </div>
         </div>
