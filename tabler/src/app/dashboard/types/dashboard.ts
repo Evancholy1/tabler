@@ -26,6 +26,7 @@ export interface Table {
   name: string | null;
   is_taken: boolean;
   current_party_size: number;
+  assigned_at: string;
 }
 
 export interface ViewProps {
