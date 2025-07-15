@@ -30,6 +30,7 @@ export interface Layout {
     name: string | null;
     is_taken: boolean;
     current_party_size: number;
+    assigned_at: string;
   }
   
   // Define props for components
