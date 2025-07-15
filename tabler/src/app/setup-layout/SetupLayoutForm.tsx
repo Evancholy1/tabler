@@ -160,11 +160,19 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
               Number of tables width?
             </label>
             <input
-              type="number"
-              min="1"
-              max="20"
+              type="text"
+              inputMode="numeric"
+              pattern="[1-9]*"
               value={tablesWidth}
-              onChange={(e) => setTablesWidth(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const num = parseInt(raw);
+                if (!raw) {
+                  setTablesWidth(0); // allow clear
+                } else if (!isNaN(num)) {
+                    setTablesWidth(Math.min(Math.max(num, 1), 20)); // clamp between 1-20
+                }
+              }}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
@@ -175,11 +183,19 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
               Number of tables length?
             </label>
             <input
-              type="number"
-              min="1"
-              max="20"
+              type="text"
+              inputMode="numeric"
+              pattern="[1-9]*"
               value={tablesLength}
-              onChange={(e) => setTablesLength(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const num = parseInt(raw);
+                if (!raw) {
+                  setTablesLength(0); // allow clear
+                } else if (!isNaN(num)) {
+                    setTablesLength(Math.min(Math.max(num, 1), 20)); // clamp between 1-20
+                }
+              }}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
@@ -190,11 +206,19 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
               Number of Sections
             </label>
             <input
-              type="number"
-              min="1"
-              max="10"
+              type="text"
+              inputMode="numeric"
+              pattern="[1-9]*"
               value={numSections}
-              onChange={(e) => handleSectionsChange(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const num = parseInt(raw);
+                if (!raw) {
+                  handleSectionsChange(0); // allow clear
+                } else if (!isNaN(num)) {
+                    handleSectionsChange(Math.min(Math.max(num, 1), 20)); // clamp between 1-20
+                }
+              }}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
