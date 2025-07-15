@@ -76,5 +76,5 @@ export default async function RootPageGatekeeper() {
     }
   
     console.log('➡️ All good, redirecting to /app');
-    redirect('/app');
+    redirect('/dashboard');
   }

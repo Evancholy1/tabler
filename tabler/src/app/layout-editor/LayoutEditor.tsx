@@ -56,7 +56,7 @@ export default function LayoutEditor({
   
       // 3. Redirect to main app
       console.log('Setup completed successfully!');
-      router.push('/app');
+      router.push('/dashboard');
       
     } catch (error) {
       console.error('Error confirming setup:', error);
