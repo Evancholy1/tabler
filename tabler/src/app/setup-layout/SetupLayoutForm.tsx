@@ -38,8 +38,8 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
   const [numSections, setNumSections] = useState<number>(1);
   const [sections, setSections] = useState<SectionData[]>([
     { id: 1, name: 'A', color: '#3B82F6' },
-    { id: 2, name: 'B', color: '#10B981' },
-    { id: 3, name: 'C', color: '#8B5CF6' },
+    // { id: 2, name: 'B', color: '#10B981' },
+    // { id: 3, name: 'C', color: '#8B5CF6' },
   ]);
   
   const [isLoading, setIsLoading] = useState(false);

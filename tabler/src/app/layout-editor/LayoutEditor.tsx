@@ -32,6 +32,9 @@ export default function LayoutEditor({
   const [newTableName, setNewTableName] = useState('');
   const [newTableSection, setNewTableSection] = useState<string>('');
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
+
   // saves all tables you created to database 
   const handleConfirmSetup = async () => {
     setIsLoading(true);
@@ -318,6 +321,19 @@ const deleteTable = (tableId: string) => {
   }
 };
 
+const confirmDelete = () => {
+  if (tableToDelete) {
+    deleteTable(tableToDelete.id);
+    setShowDeleteConfirm(false);
+    setTableToDelete(null);
+  }
+};
+
+const cancelDelete = () => {
+  setShowDeleteConfirm(false);
+  setTableToDelete(null);
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 rounded-2xl border">
@@ -502,15 +518,40 @@ const deleteTable = (tableId: string) => {
 
                 <button
                   onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this table?")) {
-                      deleteTable(selectedTable.id);
-                    }
-                  }}
-                  className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 font-medium transition-colors text-sm flex items-center justify-center gap-2"
+                  setTableToDelete(selectedTable);
+                  setShowDeleteConfirm(true);
+                }}
+                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 font-medium transition-colors text-sm flex items-center justify-center gap-2"
                 >
-                 <Trash2 size={16} />
-                 Delete Table
-                </button>
+              <Trash2 size={16} />
+              Delete Table
+              </button>
+              {/* Custom Delete Confirmation Modal */}
+                {showDeleteConfirm && tableToDelete && (
+                  <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-gray-100 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                      <h3 className="text-lg font-semibold mb-3">Delete Table</h3>
+                      <p className="text-gray-600 mb-6">
+                        Are you sure you want to delete "{tableToDelete.name || `Table ${tableToDelete.id.slice(-2)}`}"?
+                      </p>
+      
+                      <div className="flex gap-3">
+                        <button
+                          onClick={cancelDelete}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={confirmDelete}
+                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="text-xs text-gray-500">
                   <div>Position: {selectedTable.x_pos}, {selectedTable.y_pos}</div>

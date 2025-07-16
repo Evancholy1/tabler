@@ -12,6 +12,7 @@ export default function RegisterForm() {
   const [confirmPassword, setConfirm] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,15 +61,28 @@ export default function RegisterForm() {
 
         console.log('✅ User created successfully!');
 
-        await supabase.auth.signOut();
+        // await supabase.auth.signOut();
         
-        // Show success message and redirect to login
-        alert('Registration successful! Please log in with your credentials.');
+        // // Show success message and redirect to login
+        // alert('Registration successful! Please log in with your credentials.');
 
     
         
-        // 🚀 STEP 4: Redirect to login page (no auto-login)
-        router.push('/login');
+        // // 🚀 STEP 4: Redirect to login page (no auto-login)
+        // router.push('/login');
+        await supabase.auth.signOut();
+
+        // Add success state
+        setErrorMsg(null);
+        setIsLoading(false);
+
+        // Instead of alert, set success message
+        setSuccessMsg('Registration successful! Redirecting to login...');
+
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+
       }
     } catch (err) {
       console.error('Unexpected error:', err);
@@ -88,6 +102,10 @@ export default function RegisterForm() {
             {errorMsg}
           </div>
         )}
+
+          {successMsg && (
+            <div className="bg-green-100 text-green-700 p-3 mb-4 rounded border border-green-300">✅ {successMsg}</div>
+          )}
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
