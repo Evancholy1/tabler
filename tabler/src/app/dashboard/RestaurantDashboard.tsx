@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LayoutGrid, Grid3x3 } from 'lucide-react';
+import { Home, Table as TableIcon } from 'lucide-react';
 import GridView from './components/GridView';
 import TableView from './components/TableView';
 import { Layout, Section, Table } from './types/dashboard';
@@ -55,7 +55,7 @@ export default function RestaurantDashboard({
                 }
               `}
             >
-              <LayoutGrid size={24} />
+              <Home size={24} />
             </button>
             
             <button
@@ -68,7 +68,7 @@ export default function RestaurantDashboard({
                 }
               `}
             >
-              <Grid3x3 size={24} />
+              <TableIcon size={24} />
             </button>
           </div>
         </div>
