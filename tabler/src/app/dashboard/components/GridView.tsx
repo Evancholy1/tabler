@@ -84,8 +84,8 @@ export default function GridView({ layout, sections, tables: initialTables, part
         <div
           key={`${x}-${y}`}
           className={`
-            w-20 h-20 border-4 border-black flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all
-            ${isSelected ? 'border-blue-500 shadow-lg' : ''}
+            w-16 h-16 border-2 flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all
+            ${isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-300'}
             ${table.is_taken ? 'shadow-md' : ''}
             hover:shadow-md
           `}
@@ -102,7 +102,7 @@ export default function GridView({ layout, sections, tables: initialTables, part
           }}
         >
           {/* Table Name */}
-          <span className="text-base font-bold text-center leading-tight text-black">
+          <span className="text-xs font-medium text-center leading-tight text-black">
             {displayName}
           </span>
           
@@ -152,11 +152,10 @@ export default function GridView({ layout, sections, tables: initialTables, part
       {/* Main Grid - Flex grow to take available space */}
       <div className="flex-1 flex items-center justify-center">
         <div 
-          className="grid gap-3"
+          className="grid gap-2"
           style={{ 
             gridTemplateColumns: `repeat(${layout.width}, 1fr)`,
-            // maxWidth: `${layout.width * 68}px` // 64px + 4px gap
-            maxWidth: `${layout.width * 88}px` // 80px + 8px gap
+            maxWidth: `${layout.width * 68}px` // 64px + 4px gap
           }}
         >
           {renderGrid()}
