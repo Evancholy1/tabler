@@ -5,10 +5,52 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Layout, Section, Table, ViewProps } from '../types/dashboard';
 
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  tableName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel }: ConfirmationModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Remove Customers
+        </h3>
+        <p className="text-gray-600 mb-6">
+          Are you sure you want to remove customers from <strong>{tableName}</strong>?
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function GridView({ layout, sections, tables: initialTables, partySize }: ViewProps) {
   // Add safety check - use empty array if initialTables is undefined
   const [tables, setTables] = useState<Table[]>(initialTables || []);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    table: Table | null;
+  }>({ isOpen: false, table: null });
 
   // Function to get table at specific position
   const getTableAt = (x: number, y: number): Table | undefined => {
@@ -35,6 +77,7 @@ export default function GridView({ layout, sections, tables: initialTables, part
     // If taken but no section, return light gray
     return '#f3f4f6';
   };
+
   //set table status to what it is NOT 
   const toggleTableStatus = async (table: Table) => {
     try {
@@ -68,6 +111,24 @@ export default function GridView({ layout, sections, tables: initialTables, part
     }
   };
 
+  const handleTableClick = (table: Table) => {
+    setSelectedTable(table);
+
+    if (table.is_taken) {
+      setConfirmationModal({ isOpen: true, table });
+    }
+  };
+
+  const handleConfirmRemoval = async () => {
+    if (confirmationModal.table) {
+      await toggleTableStatus(confirmationModal.table);
+    }
+    setConfirmationModal({ isOpen: false, table: null });
+  };
+
+  const handleCancelRemoval = () => {
+    setConfirmationModal({ isOpen: false, table: null });
+  };
 
   // Function to render a single grid cell
   const renderCell = (x: number, y: number) => {
@@ -90,16 +151,7 @@ export default function GridView({ layout, sections, tables: initialTables, part
             hover:shadow-md
           `}
           style={{ backgroundColor }}
-          onClick={() => {
-            setSelectedTable(table);
-            
-
-            if (table.is_taken) {
-              if (confirm(`Remove customers from ${displayName}?`)) {
-                toggleTableStatus(table); 
-              }
-            }
-          }}
+          onClick={() => handleTableClick(table)}
         >
           {/* Table Name */}
           <span className="text-xs font-medium text-center leading-tight text-black">
@@ -148,24 +200,34 @@ export default function GridView({ layout, sections, tables: initialTables, part
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow min-h-screen flex flex-col">
-      {/* Main Grid - Flex grow to take available space */}
-      <div className="flex-1 flex items-center justify-center">
-        <div 
-          className="grid gap-2"
-          style={{ 
-            gridTemplateColumns: `repeat(${layout.width}, 1fr)`,
-            maxWidth: `${layout.width * 68}px` // 64px + 4px gap
-          }}
-        >
-          {renderGrid()}
+    <>
+      <div className="bg-white p-6 rounded-lg shadow min-h-screen flex flex-col">
+        {/* Main Grid - Flex grow to take available space */}
+        <div className="flex-1 flex items-center justify-center">
+          <div 
+            className="grid gap-2"
+            style={{ 
+              gridTemplateColumns: `repeat(${layout.width}, 1fr)`,
+              maxWidth: `${layout.width * 68}px` // 64px + 4px gap
+            }}
+          >
+            {renderGrid()}
+          </div>
+        </div>
+    
+        {/* Stats - Pinned to bottom */}
+        <div className="text-center text-gray-500 text-sm mt-auto">
+          {sections?.length || 0} sections, {tables?.length || 0} tables
         </div>
       </div>
-  
-      {/* Stats - Pinned to bottom */}
-      <div className="text-center text-gray-500 text-sm mt-auto">
-        {sections?.length || 0} sections, {tables?.length || 0} tables
-      </div>
-    </div>
+
+      {/* Custom Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        tableName={confirmationModal.table?.name || `T${confirmationModal.table?.id?.slice(-2)}` || ''}
+        onConfirm={handleConfirmRemoval}
+        onCancel={handleCancelRemoval}
+      />
+    </>
   );
 }
