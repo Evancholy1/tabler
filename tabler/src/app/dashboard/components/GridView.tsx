@@ -28,7 +28,7 @@ export default function GridView({ layout, sections, tables: initialTables, part
     
     // If taken and has section, return section color
     if (table.section_id && sections) {
-      const section = sections.find(s => s.id === table.section_id);
+      const section = sections.find(s => s.id === table.current_section);
       return section?.color || '#f3f4f6';
     }
     
@@ -78,7 +78,7 @@ export default function GridView({ layout, sections, tables: initialTables, part
       const displayName = table.name || `T${table.id.slice(-2)}`; 
       const backgroundColor = getSectionColor(table);
       const isSelected = selectedTable?.id === table.id;
-      const section = sections?.find(s => s.id === table.section_id);
+      const section = sections?.find(s => s.id === table.current_section);
 
       return (
         <div

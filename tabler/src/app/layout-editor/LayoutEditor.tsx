@@ -97,11 +97,13 @@ export default function LayoutEditor({
       id: `temp-${Date.now()}`,
       layout_id: layout.id,
       section_id: newTableSection,
+      current_section: newTableSection,
       x_pos: newTablePosition.x,
       y_pos: newTablePosition.y,
       name: newTableName.trim(),
       is_taken: false,
       current_party_size: 0,
+      assigned_at: new Date().toISOString()
     };
   
     // Add to tables array
@@ -155,7 +157,7 @@ export default function LayoutEditor({
     if (table) {
       // There's a table at this position
       const displayName = table.name || `+`; 
-      const backgroundColor = getSectionColor(table.section_id)
+      const backgroundColor = getSectionColor(table.current_section)
       const isSelected = selectedTable?.id === table.id;
   
       return (
@@ -213,13 +215,13 @@ export default function LayoutEditor({
     setTables(prevTables => 
       prevTables.map(table =>
         table.id === tableId
-        ? {...table, section_id: sectionId}
+        ? {...table, current_section: sectionId}
         :table
       )
     );
 
     if (selectedTable?.id === tableId) {
-      setSelectedTable(prev => prev ? {...prev, section_id: sectionId} : null);
+      setSelectedTable(prev => prev ? {...prev, current_section: sectionId} : null);
     }
   };
 
@@ -272,6 +274,7 @@ export default function LayoutEditor({
     const tablesToSave = unsavedTables.map(table => ({
       layout_id: table.layout_id,
       section_id: table.section_id,
+      current_section: table.current_section,
       x_pos: table.x_pos,
       y_pos: table.y_pos,
       name: table.name,
@@ -450,7 +453,7 @@ const cancelDelete = () => {
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">Section</label>
                   <div className="px-2 py-1 border rounded text-sm bg-gray-50">
-                    {sections.find(s => s.id === selectedTable.section_id)?.name || 'Unassigned'}
+                    {sections.find(s => s.id === selectedTable.current_section)?.name || 'Unassigned'}
                   </div>
                 </div>
 
@@ -486,7 +489,7 @@ const cancelDelete = () => {
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-1">Section</label>
                   <select
-                    value={selectedTable.section_id || ''}
+                    value={selectedTable.current_section || ''}
                     onChange={(e) => assignTableToSection(selectedTable.id, e.target.value || null)}
                     className="w-full px-2 py-1 border rounded text-sm"
                   >
