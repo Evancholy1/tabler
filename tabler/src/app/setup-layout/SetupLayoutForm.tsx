@@ -120,6 +120,9 @@ export default function SetupLayoutForm({ userId }: SetupLayoutFormProps = {}) {
         name: section.name,
         color: section.color,
         priority_rank: section.id,
+        //think this is fine?
+    
+        customers_served: 0,
       }));
 
       const { error: sectionsError } = await supabase

@@ -14,19 +14,22 @@ export interface Section {
   layout_id: string;
   name: string;
   color: string;
-  priority_rank: number | null;
+  priority_rank: number;
+  customers_served: number;
 }
 
 export interface Table {
   id: string;
   layout_id: string;
   section_id: string | null;
+  current_section: string | null;
   x_pos: number;
   y_pos: number;
   name: string | null;
   is_taken: boolean;
   current_party_size: number;
   assigned_at: string;
+  capacity?: number; // Add this optional field
 }
 
 export interface ViewProps {

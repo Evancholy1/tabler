@@ -25,6 +25,7 @@ export interface Layout {
     id: string;
     layout_id: string;
     section_id: string | null;  // null means unassigned
+    current_section: string | null; 
     x_pos: number;
     y_pos: number;
     name: string | null;
