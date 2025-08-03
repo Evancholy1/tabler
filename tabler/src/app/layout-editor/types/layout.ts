@@ -29,6 +29,7 @@ export interface Layout {
     x_pos: number;
     y_pos: number;
     name: string | null;
+    capacity: number; 
     is_taken: boolean;
     current_party_size: number;
     assigned_at: string;
