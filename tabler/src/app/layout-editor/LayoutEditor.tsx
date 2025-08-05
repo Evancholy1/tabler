@@ -35,6 +35,23 @@ export default function LayoutEditor({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
 
+  const[newTableCapacity, setNewTableCapacity] = useState<number>(4);
+
+  
+  const updateTableCapacity = (tableId: string, newCapacity: number) => {
+    setTables(prevTables => 
+      prevTables.map(table =>
+        table.id === tableId
+        ? {...table, capacity: newCapacity}
+        : table
+      )
+    );
+  
+    if (selectedTable?.id === tableId) {
+      setSelectedTable(prev => prev ? {...prev, capacity: newCapacity} : null);
+    }
+  };
+
   // saves all tables you created to database 
   const handleConfirmSetup = async () => {
     setIsLoading(true);
@@ -82,6 +99,7 @@ export default function LayoutEditor({
     setNewTablePosition({ x, y });
     setNewTableName('');
     setNewTableSection('');
+    setNewTableCapacity(4); // resets capacity
     setIsCreatingTable(true);
     setSelectedTable(null); // Clear any selected table
   };
@@ -103,7 +121,8 @@ export default function LayoutEditor({
       name: newTableName.trim(),
       is_taken: false,
       current_party_size: 0,
-      assigned_at: new Date().toISOString()
+      assigned_at: new Date().toISOString(),
+      capacity: newTableCapacity
     };
   
     // Add to tables array
@@ -118,6 +137,8 @@ export default function LayoutEditor({
     setNewTablePosition(null);
     setNewTableName('');
     setNewTableSection('');
+    setNewTableCapacity(4); // Add this line
+
   };
 
 
@@ -280,6 +301,7 @@ export default function LayoutEditor({
       name: table.name,
       is_taken: table.is_taken,
       current_party_size: table.current_party_size,
+      capacity: table.capacity
     }));
 
     const { data: savedTables, error } = await supabase
@@ -412,6 +434,38 @@ const cancelDelete = () => {
                       ))}
                     </select>
                   </div>
+                  
+                
+                  {/* Capacity Info */}
+                  {/* Capacity Info */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Capacity</label>
+                    <input
+                      type="number"
+                      value={newTableCapacity === 0 ? "" : newTableCapacity}  // Show empty string when 0
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          setNewTableCapacity(0); // Set to 0 for empty
+                        } else {
+                          const parsed = parseInt(val);
+                          if (!isNaN(parsed)) {
+                            setNewTableCapacity(parsed); // Set the actual parsed number
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        // Validate only when user leaves the field
+                        if (newTableCapacity < 1 || newTableCapacity > 20) {
+                          setNewTableCapacity(4); // Reset to default if invalid
+                        }
+                      }}
+                      className="w-full px-2 py-1 border rounded text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="Table capacity"
+                      min="1"
+                      max="20"
+                    />
+                  </div>
 
                   {/* Position Info */}
                   <div className="mb-4 text-xs text-gray-500">
@@ -438,7 +492,7 @@ const cancelDelete = () => {
                 </div>
               )}
 
-              {/* Table View Panel - when selected but not editing */}
+            {/* Table View Panel - when selected but not editing */}
             {selectedTable && !isCreatingTable && !isEditingTable && (
               <div className="mt-6 pt-4 border-t">
                 <h4 className="font-semibold mb-3">Table Info</h4>
@@ -454,6 +508,14 @@ const cancelDelete = () => {
                   <label className="block text-sm font-medium mb-1">Section</label>
                   <div className="px-2 py-1 border rounded text-sm bg-gray-50">
                     {sections.find(s => s.id === selectedTable.current_section)?.name || 'Unassigned'}
+                  </div>
+                </div>
+
+                {/* ONLY THIS CAPACITY FIELD - REMOVE THE OTHER TWO */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">Capacity</label>
+                  <div className="px-2 py-1 border rounded text-sm bg-gray-50">
+                    {selectedTable.capacity || 4} people
                   </div>
                 </div>
 
@@ -500,6 +562,37 @@ const cancelDelete = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+                {/* Capacity editing */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Capacity</label>
+                  <input
+                    type="number"
+                    value={selectedTable?.capacity === 0 ? "" : (selectedTable?.capacity || 4)}  // Show empty string when 0
+                    onChange={(e) => {
+                      if (selectedTable) {
+                        const val = e.target.value;
+                        if (val === "") {
+                          updateTableCapacity(selectedTable.id, 0); // Set to 0 for empty
+                        } else {
+                          const parsed = parseInt(val);
+                          if (!isNaN(parsed)) {
+                            updateTableCapacity(selectedTable.id, parsed); // Set the actual parsed number
+                          }
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      // When user leaves the field, ensure it's at least 1, default to 4
+                      if (selectedTable && (selectedTable.capacity < 1 || !selectedTable.capacity)) {
+                        updateTableCapacity(selectedTable.id, 4);
+                      }
+                    }}
+                    className="w-full px-2 py-1 border rounded text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="Table capacity"
+                    min="1"
+                    max="20"
+                  />
                 </div>
 
                 {/* Action Buttons */}
