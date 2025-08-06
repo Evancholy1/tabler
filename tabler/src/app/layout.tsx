@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import './globals.css';
 import type { ReactNode } from 'react';
+import Navbar from './setup-layout/components/Navbar'; // correct path
 
 //added outfit font
 import { Outfit } from 'next/font/google';
@@ -37,7 +38,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${outfit.className} antialiased`}
-      >
+      ><Navbar />
         {children}
       </body>
     </html>
