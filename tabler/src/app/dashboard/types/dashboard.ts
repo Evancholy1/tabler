@@ -37,4 +37,5 @@ export interface ViewProps {
   sections: Section[];
   tables: Table[];
   partySize: number;
+  onUpdateTable: (tableId: string, updates: Partial<Table>) => void; 
 }

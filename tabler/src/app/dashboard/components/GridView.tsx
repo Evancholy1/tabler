@@ -43,9 +43,13 @@ const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel }: Confirmat
   );
 };
 
-export default function GridView({ layout, sections, tables: initialTables, partySize }: ViewProps) {
-  // Add safety check - use empty array if initialTables is undefined
-  const [tables, setTables] = useState<Table[]>(initialTables || []);
+export default function GridView({ 
+  layout, 
+  sections, 
+  tables, // Use tables directly from props (don't create local state)
+  partySize, 
+  onUpdateTable // Use the callback to update parent state
+}: ViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -78,7 +82,7 @@ export default function GridView({ layout, sections, tables: initialTables, part
     return '#f3f4f6';
   };
 
-  //set table status to what it is NOT 
+  // Updated toggle function to use onUpdateTable callback
   const toggleTableStatus = async (table: Table) => {
     try {
       const newStatus = !table.is_taken;
@@ -98,13 +102,11 @@ export default function GridView({ layout, sections, tables: initialTables, part
         return;
       }
 
-      setTables(prevTables =>
-        (prevTables || []).map(t =>
-          t.id === table.id
-            ? { ...t, is_taken: newStatus, current_party_size: newPartySize }
-            : t
-        )
-      );
+      // Update parent state using the callback
+      onUpdateTable(table.id, {
+        is_taken: newStatus,
+        current_party_size: newPartySize
+      });
 
     } catch (error) {
       console.error('Failed to update table status:', error);
