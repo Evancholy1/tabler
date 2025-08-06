@@ -16,12 +16,26 @@ interface RestaurantDashboardProps {
 
 export default function RestaurantDashboard({ 
   layout, 
-  sections, 
-  tables 
+  sections: initialSections, 
+  tables: initialTables 
 }: RestaurantDashboardProps) {
+  
+  // Move tables to local state
+  const [tables, setTables] = useState<Table[]>(initialTables);
+  
+  // ADD: Table update function
+  const updateTable = (tableId: string, updates: Partial<Table>) => {
+    setTables(prevTables =>
+      prevTables.map(t =>
+        t.id === tableId ? { ...t, ...updates } : t
+      )
+    );
+  };
   
   // State for view mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // Add sections state management
+const [sections, setSections] = useState<Section[]>(initialSections);
   
   // State for party size
   const [partySize, setPartySize] = useState(1);
@@ -34,6 +48,9 @@ export default function RestaurantDashboard({
 const selectedSectionData = sections.find(s => s.id === selectedSection);
 const sectionDisplayName = selectedSectionData?.name || selectedSection;
 const currentCustomers = selectedSectionData?.customers_served || 0;
+
+
+
 
   const incrementPartySize = () => {
     setPartySize(prev => Math.min(prev + 1, 20)); // Max 20 people
@@ -140,34 +157,39 @@ const handleSectionChange = (newSectionId: string) => {
 const handleConfirmAssignment = async () => {
   try{
     const table = tables.find(t => t.id === selectedTable); 
-  if (!table) {
-    alert('Selected table not found');
-    return;
-  }
-
-  if (table.current_section !== selectedSection) {
-    const { error: tableUpdateError } = await supabase
-      .from('tables')
-      .update({ 
-        current_section: selectedSection 
-      })
-      .eq('id', selectedTable);
-
-    if (tableUpdateError) {
-      console.error('Error updating table section:', tableUpdateError);
-      alert('Failed to update table section');
+    if (!table) {
+      alert('Selected table not found');
       return;
     }
-  }
 
-  const { error: tableStatusError } = await supabase
-      .from('tables')
-      .update({
-        is_taken: true,
-        current_party_size: partySize,
-        assigned_at: new Date().toISOString()
-      })
-      .eq('id', selectedTable);
+    // Update table section if needed
+    if (table.current_section !== selectedSection) {
+      const { error: tableUpdateError } = await supabase
+        .from('tables')
+        .update({ 
+          current_section: selectedSection 
+        })
+        .eq('id', selectedTable);
+
+      if (tableUpdateError) {
+        console.error('Error updating table section:', tableUpdateError);
+        alert('Failed to update table section');
+        return;
+      }
+
+      // Update local table state for section change
+      updateTable(selectedTable, { current_section: selectedSection });
+    }
+
+    // Update table status
+    const { error: tableStatusError } = await supabase
+        .from('tables')
+        .update({
+          is_taken: true,
+          current_party_size: partySize,
+          assigned_at: new Date().toISOString()
+        })
+        .eq('id', selectedTable);
 
     if (tableStatusError) {
       console.error('Error updating table status:', tableStatusError);
@@ -175,6 +197,14 @@ const handleConfirmAssignment = async () => {
       return;
     }
 
+    // Update local table state for status change
+    updateTable(selectedTable, {
+      is_taken: true,
+      current_party_size: partySize,
+      assigned_at: new Date().toISOString()
+    });
+
+    // Update section customer count
     const { error: sectionUpdateError } = await supabase
       .from('sections')
       .update({
@@ -188,10 +218,20 @@ const handleConfirmAssignment = async () => {
       return;
     }
 
+    // Update local sections state
+    setSections(prevSections =>
+      prevSections.map(s =>
+        s.id === selectedSection
+          ? { ...s, customers_served: (s.customers_served || 0) + partySize }
+          : s
+      )
+    );
+
     console.log(`Successfully assigned ${partySize} people to table ${selectedTable} in section ${selectedSection}`);
     setShowAssignPopup(false);
 
-    window.location.reload(); 
+    // REMOVED: window.location.reload(); 
+    // The state updates above will automatically refresh the UI
 
   } catch (error) {
     console.error('Could not assign properly error:', error);
@@ -246,22 +286,24 @@ return (
 
     {/* Main Content Area */}
     <div className="max-w-6xl mx-auto p-4">
-      {viewMode === 'grid' ? (
-        <GridView 
-          layout={layout}
-          sections={sections}
-          tables={tables}
-          partySize={partySize}
-        />
-      ) : (
-        <TableView 
-          layout={layout}
-          sections={sections}
-          tables={tables}
-          partySize={partySize}
-        />
-      )}
-    </div>
+        {viewMode === 'grid' ? (
+          <GridView 
+            layout={layout}
+            sections={sections}
+            tables={tables}           // Use state, not props
+            partySize={partySize}
+            onUpdateTable={updateTable}  // ADD: Pass callback
+          />
+        ) : (
+          <TableView 
+            layout={layout}
+            sections={sections}
+            tables={tables}           // Use state, not props
+            partySize={partySize}
+            onUpdateTable={updateTable}  // ADD: Pass callback
+          />
+        )}
+      </div>
 
     {/* Bottom Controls */}
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
