@@ -95,6 +95,14 @@ export default function RestaurantDashboard({
     }
   };
 
+  const updateSection = (sectionId: string, updates: Partial<Section>) => {
+    setSections(prevSections =>
+      prevSections.map(s =>
+        s.id === sectionId ? { ...s, ...updates } : s
+      )
+    );
+  };
+
   const incrementPartySize = () => {
     setPartySize(prev => Math.min(prev + 1, 20)); // Max 20 people
   };
@@ -224,6 +232,11 @@ export default function RestaurantDashboard({
       if (!table) {
         alert('Selected table not found');
         return;
+      }
+
+      const tableCapacity = table.capacity || 4;
+      if(partySize > tableCapacity) {
+        alert('This table can only seat ${tableCapacity} people, but you are trying to assign ${partySize} people.');
       }
 
       // Update table section if needed
@@ -357,6 +370,7 @@ export default function RestaurantDashboard({
             onUpdateTable={updateTable}
             onCreateServiceHistory={addServiceHistoryEntry}
             onTriggerAutoAssign={handleTriggerAutoAssignFromGrid}
+            onUpdateSection={updateSection}
           />
         ) : (
           <TableView 
