@@ -10,32 +10,48 @@ interface ConfirmationModalProps {
   tableName: string;
   onConfirm: () => void;
   onCancel: () => void;
+  onMove: () => void; // Add move function
 }
 
-const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel }: ConfirmationModalProps) => {
+interface MoveCustomersModalProps {
+  isOpen: boolean;
+  sourceTable: Table | null;
+  sections: Section[];
+  tables: Table[];
+  onConfirm: (targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => void;
+  onCancel: () => void;
+}
+
+const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel, onMove }: ConfirmationModalProps) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Remove Customers
+          Manage Table: {tableName}
         </h3>
         <p className="text-gray-600 mb-6">
-          Are you sure you want to remove customers from <strong>{tableName}</strong>?
+          What would you like to do with the customers at <strong>{tableName}</strong>?
         </p>
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col gap-3">
           <button
-            onClick={onCancel}
-            className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            onClick={onMove}
+            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
           >
-            Cancel
+            Move Customers
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
           >
-            Remove
+            Remove Customers
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            Cancel
           </button>
         </div>
       </div>
@@ -43,21 +59,227 @@ const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel }: Confirmat
   );
 };
 
-// Extended ViewProps to include service history callback with cumulative tracking
+const MoveCustomersModal = ({ 
+  isOpen, 
+  sourceTable, 
+  sections, 
+  tables, 
+  onConfirm, 
+  onCancel 
+}: MoveCustomersModalProps) => {
+  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [keepOriginalSection, setKeepOriginalSection] = useState(false);
+
+  // Get available tables (not taken and not the source table)
+  const getAvailableTables = () => {
+    return tables.filter(table => 
+      !table.is_taken && 
+      table.id !== sourceTable?.id &&
+      (table.capacity || 4) >= (sourceTable?.current_party_size || 1)
+    );
+  };
+
+  // Handle table selection - auto-set section based on table's section_id unless keeping original
+  const handleTableChange = (tableId: string) => {
+    setSelectedTable(tableId);
+    if (!keepOriginalSection) {
+      const selectedTableData = tables.find(t => t.id === tableId);
+      if (selectedTableData && selectedTableData.section_id) {
+        setSelectedSection(selectedTableData.section_id);
+      }
+    }
+  };
+
+  // Handle section change - filter tables by section
+  const handleSectionChange = (sectionId: string) => {
+    setSelectedSection(sectionId);
+    // Clear table selection when section changes
+    setSelectedTable('');
+  };
+
+  // Handle keep original section toggle
+  const handleKeepOriginalToggle = (checked: boolean) => {
+    setKeepOriginalSection(checked);
+    if (checked && sourceTable?.current_section) {
+      setSelectedSection(sourceTable.current_section);
+    } else if (selectedTable) {
+      // Reset to table's default section
+      const selectedTableData = tables.find(t => t.id === selectedTable);
+      if (selectedTableData && selectedTableData.section_id) {
+        setSelectedSection(selectedTableData.section_id);
+      }
+    }
+  };
+
+  if (!isOpen || !sourceTable) return null;
+
+  const availableTables = getAvailableTables();
+  const sourceSection = sections.find(s => s.id === sourceTable.current_section);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="bg-blue-50 p-4 border-b">
+          <h3 className="text-xl font-semibold text-blue-900">Move Customers</h3>
+          <p className="text-sm text-blue-700">
+            Moving {sourceTable.current_party_size} {sourceTable.current_party_size === 1 ? 'person' : 'people'} from {sourceTable.name || sourceTable.id}
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {availableTables.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-gray-500">No available tables with sufficient capacity</p>
+            </div>
+          ) : (
+            <>
+              {/* Keep Original Section Toggle */}
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={keepOriginalSection}
+                    onChange={(e) => handleKeepOriginalToggle(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-yellow-800">
+                    Keep customers in original section ({sourceSection?.name})
+                  </span>
+                </label>
+                <p className="text-xs text-yellow-700 mt-1 ml-7">
+                  Check this to move to a different physical table but keep the same section assignment
+                </p>
+              </div>
+
+              {/* Section Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {keepOriginalSection ? 'Section Assignment (Fixed)' : 'Target Section'}
+                </label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => handleSectionChange(e.target.value)}
+                  disabled={keepOriginalSection}
+                  className={`w-full p-3 border-2 rounded-lg bg-white focus:outline-none ${
+                    keepOriginalSection 
+                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
+                      : 'border-blue-200 focus:border-blue-400'
+                  }`}
+                >
+                  <option value="">Select a section...</option>
+                  {sections.map(section => (
+                    <option key={section.id} value={section.id}>
+                      {section.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Table Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Target Table
+                </label>
+                <select
+                  value={selectedTable}
+                  onChange={(e) => handleTableChange(e.target.value)}
+                  className="w-full p-3 border-2 border-blue-200 rounded-lg bg-white focus:border-blue-400 focus:outline-none"
+                >
+                  <option value="">Select a table...</option>
+                  
+                  {/* Show all available tables grouped by section */}
+                  {sections.map(section => {
+                    const sectionTables = getAvailableTables().filter(table => table.section_id === section.id);
+                    if (sectionTables.length === 0) return null;
+                    
+                    return (
+                      <optgroup key={section.id} label={`${section.name} Tables`}>
+                        {sectionTables.map(table => (
+                          <option key={table.id} value={table.id}>
+                            {table.name || table.id} (Capacity: {table.capacity || 4})
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Move Summary */}
+              {selectedTable && selectedSection && (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600 mb-2">
+                      Move Summary
+                    </div>
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <div>
+                        <strong>Physical Table:</strong> {sourceTable.name || sourceTable.id} → {tables.find(t => t.id === selectedTable)?.name || selectedTable}
+                      </div>
+                      <div>
+                        <strong>Table Section:</strong> {sourceSection?.name} → {sections.find(s => s.id === tables.find(t => t.id === selectedTable)?.section_id)?.name}
+                      </div>
+                      <div>
+                        <strong>Assignment Section:</strong> {sourceSection?.name} → {sections.find(s => s.id === selectedSection)?.name}
+                        {keepOriginalSection && <span className="text-yellow-600 font-medium"> (No Change)</span>}
+                      </div>
+                      <div>
+                        <strong>Party Size:</strong> {sourceTable.current_party_size} {sourceTable.current_party_size === 1 ? 'person' : 'people'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer Buttons */}
+        <div className="flex space-x-4 p-6 bg-gray-50">
+          <button
+            onClick={onCancel}
+            className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(selectedTable, selectedSection, keepOriginalSection)}
+            disabled={!selectedTable || !selectedSection || availableTables.length === 0}
+            className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Move Customers
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Extended ViewProps to include service history callback AND auto-assign trigger
 interface ExtendedViewProps extends ViewProps {
   onCreateServiceHistory?: (tableId: string, sectionId: string, partySize: number) => void;
+  onTriggerAutoAssign?: (preselectedTableId?: string) => void; // Add this for triggering popup
 }
 
 export default function GridView({ 
   layout, 
   sections, 
-  tables, 
+  tables,
   partySize, 
   onUpdateTable,
-  onCreateServiceHistory
+  onCreateServiceHistory, // Keep for manual removal
+  onTriggerAutoAssign // Add this prop
 }: ExtendedViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    table: Table | null;
+  }>({ isOpen: false, table: null });
+  
+  const [moveModal, setMoveModal] = useState<{
     isOpen: boolean;
     table: Table | null;
   }>({ isOpen: false, table: null });
@@ -84,25 +306,16 @@ export default function GridView({
     return '#f3f4f6';
   };
 
-  // UPDATED: Simple toggle without accumulation + service history creation
+  // RESOLVED: Only handle removing customers - no direct seating
   const toggleTableStatus = async (table: Table) => {
     try {
-      const newStatus = !table.is_taken;
-      
-      const updates: any = {
-        is_taken: newStatus
-      };
-
-      // When seating customers (clicking empty table), set current party size
-      if (newStatus) {
-        updates.current_party_size = partySize; // Just current service, no accumulation
-      }
-      // When removing customers, don't change party size (keeps last service size)
-      
-      // Update database
+      // Only handle removing customers (is_taken = false)
       const { error } = await supabase
         .from('tables')
-        .update(updates)
+        .update({
+          is_taken: false,
+          current_party_size: 0
+        })
         .eq('id', table.id);
 
       if (error) {
@@ -111,23 +324,79 @@ export default function GridView({
       }
 
       // Update parent state
-      const stateUpdates: any = {
-        is_taken: newStatus
-      };
-
-      if (newStatus) {
-        stateUpdates.current_party_size = partySize;
-        
-        // CREATE SERVICE HISTORY ENTRY when seating customers
-        if (onCreateServiceHistory) {
-          onCreateServiceHistory(table.id, table.current_section || '', partySize);
-        }
-      }
-
-      onUpdateTable(table.id, stateUpdates);
+      onUpdateTable(table.id, {
+        is_taken: false,
+        current_party_size: 0
+      });
 
     } catch (error) {
       console.error('Failed to update table status:', error);
+    }
+  };
+
+  // Move customers to another table
+  const moveCustomers = async (sourceTable: Table, targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => {
+    try {
+      // Determine the final section assignment
+      const finalSectionId = keepOriginalSection ? sourceTable.current_section : targetSectionId;
+
+      // Update source table - remove customers
+      const { error: sourceError } = await supabase
+        .from('tables')
+        .update({ 
+          is_taken: false,
+          current_party_size: 0
+        })
+        .eq('id', sourceTable.id);
+
+      if (sourceError) {
+        console.error('Error updating source table:', sourceError);
+        alert('Failed to update source table');
+        return;
+      }
+
+      // Update target table - add customers and set section
+      const { error: targetError } = await supabase
+        .from('tables')
+        .update({
+          is_taken: true,
+          current_party_size: sourceTable.current_party_size,
+          current_section: finalSectionId,
+          assigned_at: new Date().toISOString()
+        })
+        .eq('id', targetTableId);
+
+      if (targetError) {
+        console.error('Error updating target table:', targetError);
+        alert('Failed to update target table');
+        return;
+      }
+
+      // REMOVED: Don't create service history when moving customers
+      // Moving is just changing physical location, not a new service
+
+      // Update local state
+      onUpdateTable(sourceTable.id, {
+        is_taken: false,
+        current_party_size: 0
+      });
+
+      onUpdateTable(targetTableId, {
+        is_taken: true,
+        current_party_size: sourceTable.current_party_size,
+        current_section: finalSectionId,
+        assigned_at: new Date().toISOString()
+      });
+
+      const actionDescription = keepOriginalSection 
+        ? `moved to different physical table but kept in same section`
+        : `moved to different table and section`;
+
+      console.log(`Successfully ${actionDescription}: ${sourceTable.current_party_size} customers from ${sourceTable.id} to ${targetTableId} (section: ${finalSectionId})`);
+
+    } catch (error) {
+      console.error('Failed to move customers:', error);
+      alert('An error occurred while moving customers');
     }
   };
 
@@ -135,10 +404,13 @@ export default function GridView({
     setSelectedTable(table);
 
     if (table.is_taken) {
+      // Show confirmation modal for occupied tables
       setConfirmationModal({ isOpen: true, table });
     } else {
-      // Directly seat customers if table is empty
-      toggleTableStatus(table);
+      // Trigger auto-assign popup with this table preselected
+      if (onTriggerAutoAssign) {
+        onTriggerAutoAssign(table.id);
+      }
     }
   };
 
@@ -149,8 +421,21 @@ export default function GridView({
     setConfirmationModal({ isOpen: false, table: null });
   };
 
-  const handleCancelRemoval = () => {
+  const handleShowMove = () => {
+    setMoveModal({ isOpen: true, table: confirmationModal.table });
     setConfirmationModal({ isOpen: false, table: null });
+  };
+
+  const handleConfirmMove = async (targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => {
+    if (moveModal.table && targetTableId && targetSectionId) {
+      await moveCustomers(moveModal.table, targetTableId, targetSectionId, keepOriginalSection);
+    }
+    setMoveModal({ isOpen: false, table: null });
+  };
+
+  const handleCancelAction = () => {
+    setConfirmationModal({ isOpen: false, table: null });
+    setMoveModal({ isOpen: false, table: null });
   };
 
   // Function to render a single grid cell
@@ -174,12 +459,10 @@ export default function GridView({
           style={{ backgroundColor }}
           onClick={() => handleTableClick(table)}
         >
-          {/* Table Name */}
           <span className="text-xs font-medium text-center leading-tight text-black">
             {displayName}
           </span>
           
-          {/* Party Size (if taken) */}
           {table.is_taken && table.current_party_size > 0 && (
             <span className="text-xs text-gray-700 leading-none">
               {table.current_party_size}
@@ -188,7 +471,6 @@ export default function GridView({
         </div>
       );
     } else {
-      // Empty cell - no table here
       return (
         <div
           key={`${x}-${y}`}
@@ -222,7 +504,6 @@ export default function GridView({
   return (
     <>
       <div className="bg-white p-6 rounded-lg shadow min-h-screen flex flex-col">
-        {/* Main Grid */}
         <div className="flex-1 flex items-center justify-center">
           <div 
             className="grid gap-2"
@@ -235,7 +516,6 @@ export default function GridView({
           </div>
         </div>
     
-        {/* Stats */}
         <div className="text-center text-gray-500 text-sm mt-auto">
           {sections?.length || 0} sections, {tables?.length || 0} tables
         </div>
@@ -246,7 +526,18 @@ export default function GridView({
         isOpen={confirmationModal.isOpen}
         tableName={confirmationModal.table?.name || `T${confirmationModal.table?.id?.slice(-2)}` || ''}
         onConfirm={handleConfirmRemoval}
-        onCancel={handleCancelRemoval}
+        onCancel={handleCancelAction}
+        onMove={handleShowMove}
+      />
+
+      {/* Move Customers Modal */}
+      <MoveCustomersModal
+        isOpen={moveModal.isOpen}
+        sourceTable={moveModal.table}
+        sections={sections}
+        tables={tables}
+        onConfirm={handleConfirmMove}
+        onCancel={handleCancelAction}
       />
     </>
   );
