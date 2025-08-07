@@ -43,13 +43,19 @@ const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel }: Confirmat
   );
 };
 
+// Extended ViewProps to include service history callback with cumulative tracking
+interface ExtendedViewProps extends ViewProps {
+  onCreateServiceHistory?: (tableId: string, sectionId: string, partySize: number) => void;
+}
+
 export default function GridView({ 
   layout, 
   sections, 
-  tables, // Use tables directly from props (don't create local state)
+  tables, 
   partySize, 
-  onUpdateTable // Use the callback to update parent state
-}: ViewProps) {
+  onUpdateTable,
+  onCreateServiceHistory
+}: ExtendedViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -58,7 +64,6 @@ export default function GridView({
 
   // Function to get table at specific position
   const getTableAt = (x: number, y: number): Table | undefined => {
-    // Add safety check
     if (!tables || !Array.isArray(tables)) {
       return undefined;
     }
@@ -67,34 +72,37 @@ export default function GridView({
 
   // Function to get section color (only show color if taken)
   const getSectionColor = (table: Table): string => {
-    // If table is not taken, always return white
     if (!table.is_taken) {
       return '#ffffff';
     }
     
-    // If taken and has section, return section color
     if (table.section_id && sections) {
       const section = sections.find(s => s.id === table.current_section);
       return section?.color || '#f3f4f6';
     }
     
-    // If taken but no section, return light gray
     return '#f3f4f6';
   };
 
-  // Updated toggle function to use onUpdateTable callback
+  // UPDATED: Simple toggle without accumulation + service history creation
   const toggleTableStatus = async (table: Table) => {
     try {
       const newStatus = !table.is_taken;
-      const newPartySize = newStatus ? partySize : 0;
+      
+      const updates: any = {
+        is_taken: newStatus
+      };
+
+      // When seating customers (clicking empty table), set current party size
+      if (newStatus) {
+        updates.current_party_size = partySize; // Just current service, no accumulation
+      }
+      // When removing customers, don't change party size (keeps last service size)
       
       // Update database
       const { error } = await supabase
         .from('tables')
-        .update({ 
-          is_taken: newStatus,
-          current_party_size: newPartySize
-        })
+        .update(updates)
         .eq('id', table.id);
 
       if (error) {
@@ -102,11 +110,21 @@ export default function GridView({
         return;
       }
 
-      // Update parent state using the callback
-      onUpdateTable(table.id, {
-        is_taken: newStatus,
-        current_party_size: newPartySize
-      });
+      // Update parent state
+      const stateUpdates: any = {
+        is_taken: newStatus
+      };
+
+      if (newStatus) {
+        stateUpdates.current_party_size = partySize;
+        
+        // CREATE SERVICE HISTORY ENTRY when seating customers
+        if (onCreateServiceHistory) {
+          onCreateServiceHistory(table.id, table.current_section || '', partySize);
+        }
+      }
+
+      onUpdateTable(table.id, stateUpdates);
 
     } catch (error) {
       console.error('Failed to update table status:', error);
@@ -118,6 +136,9 @@ export default function GridView({
 
     if (table.is_taken) {
       setConfirmationModal({ isOpen: true, table });
+    } else {
+      // Directly seat customers if table is empty
+      toggleTableStatus(table);
     }
   };
 
@@ -137,11 +158,9 @@ export default function GridView({
     const table = getTableAt(x, y);
     
     if (table) {
-      // There's a table at this position
       const displayName = table.name || `T${table.id.slice(-2)}`; 
       const backgroundColor = getSectionColor(table);
       const isSelected = selectedTable?.id === table.id;
-      const section = sections?.find(s => s.id === table.current_section);
 
       return (
         <div
@@ -169,7 +188,7 @@ export default function GridView({
         </div>
       );
     } else {
-      // Empty cell - no table here (invisible)
+      // Empty cell - no table here
       return (
         <div
           key={`${x}-${y}`}
@@ -192,7 +211,6 @@ export default function GridView({
     return cells;
   };
 
-  // Add loading state if no data
   if (!layout) {
     return (
       <div className="bg-white p-6 rounded-lg shadow">
@@ -204,26 +222,26 @@ export default function GridView({
   return (
     <>
       <div className="bg-white p-6 rounded-lg shadow min-h-screen flex flex-col">
-        {/* Main Grid - Flex grow to take available space */}
+        {/* Main Grid */}
         <div className="flex-1 flex items-center justify-center">
           <div 
             className="grid gap-2"
             style={{ 
               gridTemplateColumns: `repeat(${layout.width}, 1fr)`,
-              maxWidth: `${layout.width * 68}px` // 64px + 4px gap
+              maxWidth: `${layout.width * 68}px`
             }}
           >
             {renderGrid()}
           </div>
         </div>
     
-        {/* Stats - Pinned to bottom */}
+        {/* Stats */}
         <div className="text-center text-gray-500 text-sm mt-auto">
           {sections?.length || 0} sections, {tables?.length || 0} tables
         </div>
       </div>
 
-      {/* Custom Confirmation Modal */}
+      {/* Confirmation Modal */}
       <ConfirmationModal
         isOpen={confirmationModal.isOpen}
         tableName={confirmationModal.table?.name || `T${confirmationModal.table?.id?.slice(-2)}` || ''}
