@@ -61,32 +61,54 @@ const currentCustomers = selectedSectionData?.customers_served || 0;
   };
 
   //table filtering function returns a lists of tables based on pareameters/filters
- const getFilteredTables = (filters: {
-  sectionId?: string; //returns tables of the same section
-  availableOnly?: boolean; //returns available tables
-  minCapacity?: number; //returns tables that are large enough 
-  excludeSection?: boolean; //do we want to remove some sections? 
- }) => {
+ // Update the getFilteredTables function in RestaurantDashboard
+const getFilteredTables = (filters: {
+  sectionId?: string;
+  availableOnly?: boolean;
+  minCapacity?: number;
+  excludeSection?: boolean;
+}) => {
   return tables.filter(table => {
-    if (filters.sectionId && !filters.excludeSection) { //if these filters are on:
-      if (table.current_section !== filters.sectionId) return false;
+    if (filters.sectionId && !filters.excludeSection) {
+      // FIXED: Check against section_id (table's home section), not current_section
+      if (table.section_id !== filters.sectionId) return false;
     }
 
-    //if we want all tables not in that section (for dropdown) 
     if (filters.excludeSection && filters.sectionId) {
       if (table.section_id === filters.sectionId) return false; 
     }
 
-    //availability filter is on
     if (filters.availableOnly && table.is_taken) return false; 
 
-    //table capacity 
     if (filters.minCapacity && (table.capacity || 4) < filters.minCapacity) return false; 
 
     return true; 
   });
- };
+};
 
+
+ const handleTriggerAutoAssignFromGrid = (preselectedTableId?: string) => {
+  const optimalSection = getOptimalSection();
+  
+  setSelectedSection(optimalSection.id);
+  
+  if (preselectedTableId) {
+    setSelectedTable(preselectedTableId);
+  } else {
+    // Find first available table in optimal section
+    const availableInSection = getFilteredTables({ 
+      sectionId: optimalSection.id, 
+      availableOnly: true, 
+      minCapacity: partySize 
+    });
+    
+    if (availableInSection.length > 0) {
+      setSelectedTable(availableInSection[0].id);
+    }
+  }
+  
+  setShowAssignPopup(true);
+};
 
  const getOptimalSection = () => {
   const minCustomers = Math.min(...sections.map(s => s.customers_served));
@@ -292,7 +314,8 @@ return (
             sections={sections}
             tables={tables}           // Use state, not props
             partySize={partySize}
-            onUpdateTable={updateTable}  // ADD: Pass callback
+            onUpdateTable={updateTable}  //  Pass callback
+            onTriggerAutoAssign={handleTriggerAutoAssignFromGrid} 
           />
         ) : (
           <TableView 
