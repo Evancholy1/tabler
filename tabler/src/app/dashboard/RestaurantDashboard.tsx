@@ -24,6 +24,61 @@ interface RestaurantDashboardProps {
   sections: Section[];
   tables: Table[];
 }
+// Add this right after your imports and before the main RestaurantDashboard component
+
+interface ErrorModalProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onClose: () => void;
+}
+
+const ErrorModal = ({ isOpen, title, message, onClose }: ErrorModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="bg-red-50 p-4 border-b border-red-200">
+          <h3 className="text-xl font-semibold text-red-900">{title}</h3>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <div className="flex items-start space-x-4">
+            {/* Warning Icon */}
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.732 19c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Message */}
+            <div className="flex-1">
+              <p className="text-gray-700 text-sm leading-relaxed">
+                {message}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 export default function RestaurantDashboard({ 
   layout, 
@@ -79,6 +134,16 @@ export default function RestaurantDashboard({
           : entry
       )
     );
+  };
+
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({ isOpen: false, title: '', message: '' });
+
+  const showError = (title: string, message: string) => {
+    setErrorModal({ isOpen: true, title, message });
   };
 
   // Table update function for child components
@@ -174,7 +239,10 @@ export default function RestaurantDashboard({
         });
         
         if (allAvailable.length === 0) {
-          alert('No tables available for a party of ' + partySize);
+          showError(
+            'No Tables Available',
+            `No tables are currently available for a party of ${partySize} ${partySize === 1 ? 'person' : 'people'}.`
+          );
           return;
         }
         
@@ -236,7 +304,19 @@ export default function RestaurantDashboard({
 
       const tableCapacity = table.capacity || 4;
       if(partySize > tableCapacity) {
-        alert('This table can only seat ${tableCapacity} people, but you are trying to assign ${partySize} people.');
+        showError(
+          'Table Capacity Exceeded',
+          `This table can only seat ${tableCapacity} ${tableCapacity === 1 ? 'person' : 'people'}, but you're trying to assign ${partySize} ${partySize === 1 ? 'person' : 'people'}. Please select a larger table or reduce the party size.`
+        );
+        return; 
+      }
+
+      if (table.is_taken) {
+        showError(
+          'Table Already Occupied',
+          `This table is currently occupied by ${table.current_party_size} ${table.current_party_size === 1 ? 'person' : 'people'}. Please select an available table or wait for this table to become free.`
+        );
+        return;
       }
 
       // Update table section if needed
@@ -532,11 +612,17 @@ export default function RestaurantDashboard({
                 className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-600 transition-colors"
               >
                 Confirm
-              </button>
+                </button>
             </div>
           </div>
         </div>
       )}
+        <ErrorModal
+        isOpen={errorModal.isOpen}
+        title={errorModal.title}
+        message={errorModal.message}
+        onClose={() => setErrorModal({ isOpen: false, title: '', message: '' })}
+      />
     </div>
   );
 }
