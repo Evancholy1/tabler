@@ -112,16 +112,6 @@ const MoveCustomersModal = ({
     }
   };
 
-  // Get tables for the selected section
-  const getTablesForSection = (sectionId: string) => {
-    return getAvailableTables().filter(table => table.section_id === sectionId);
-  };
-
-  // Get tables not in the selected section
-  const getTablesNotInSection = (sectionId: string) => {
-    return getAvailableTables().filter(table => table.section_id !== sectionId);
-  };
-
   if (!isOpen || !sourceTable) return null;
 
   const availableTables = getAvailableTables();
@@ -268,13 +258,21 @@ const MoveCustomersModal = ({
   );
 };
 
+// Extended ViewProps to include service history callback AND auto-assign trigger
+interface ExtendedViewProps extends ViewProps {
+  onCreateServiceHistory?: (tableId: string, sectionId: string, partySize: number) => void;
+  onTriggerAutoAssign?: (preselectedTableId?: string) => void; // Add this for triggering popup
+}
+
 export default function GridView({ 
   layout, 
   sections, 
   tables,
   partySize, 
-  onUpdateTable
-}: ViewProps) {
+  onUpdateTable,
+  onCreateServiceHistory, // Keep for manual removal
+  onTriggerAutoAssign // Add this prop
+}: ExtendedViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -308,12 +306,13 @@ export default function GridView({
     return '#f3f4f6';
   };
 
-  // Remove customers from table
+  // RESOLVED: Only handle removing customers - no direct seating
   const toggleTableStatus = async (table: Table) => {
     try {
+      // Only handle removing customers (is_taken = false)
       const { error } = await supabase
         .from('tables')
-        .update({ 
+        .update({
           is_taken: false,
           current_party_size: 0
         })
@@ -324,6 +323,7 @@ export default function GridView({
         return;
       }
 
+      // Update parent state
       onUpdateTable(table.id, {
         is_taken: false,
         current_party_size: 0
@@ -372,6 +372,9 @@ export default function GridView({
         return;
       }
 
+      // REMOVED: Don't create service history when moving customers
+      // Moving is just changing physical location, not a new service
+
       // Update local state
       onUpdateTable(sourceTable.id, {
         is_taken: false,
@@ -401,7 +404,13 @@ export default function GridView({
     setSelectedTable(table);
 
     if (table.is_taken) {
+      // Show confirmation modal for occupied tables
       setConfirmationModal({ isOpen: true, table });
+    } else {
+      // Trigger auto-assign popup with this table preselected
+      if (onTriggerAutoAssign) {
+        onTriggerAutoAssign(table.id);
+      }
     }
   };
 
