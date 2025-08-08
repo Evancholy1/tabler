@@ -477,43 +477,71 @@ export default function GridView({
   const renderCell = (x: number, y: number) => {
     const table = getTableAt(x, y);
     
+    // Calculate responsive table size based on screen and grid dimensions
+    const getTableSize = () => {
+      const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+      const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+      
+      // Calculate size based on available space
+      const availableWidth = screenWidth * 0.8; // Use 80% of screen width
+      const availableHeight = (screenHeight - 300) * 0.8; // Account for header/footer
+      
+      const maxTableWidth = Math.floor(availableWidth / layout.width) - 16; // Account for gaps
+      const maxTableHeight = Math.floor(availableHeight / layout.height) - 16;
+      
+      const tableSize = Math.max(60, Math.min(120, Math.min(maxTableWidth, maxTableHeight)));
+      return tableSize;
+    };
+  
+    const tableSize = getTableSize();
+    
     if (table) {
       const displayName = table.name || `T${table.id.slice(-2)}`; 
       const backgroundColor = getSectionColor(table);
       const isSelected = selectedTable?.id === table.id;
-
+  
       return (
         <div
           key={`${x}-${y}`}
           className={`
-            w-16 h-16 border-2 flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all
+            w-full h-full min-w-[60px] min-h-[60px] max-w-[120px] max-h-[120px]
+            border-2 flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all
             ${isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-300'}
             ${table.is_taken ? 'shadow-md' : ''}
             hover:shadow-md
           `}
-          style={{ backgroundColor }}
+          style={{ 
+            backgroundColor,
+            aspectRatio: '1'
+          }}
           onClick={() => handleTableClick(table)}
         >
-          <span className="text-xs font-medium text-center leading-tight text-black">
+          {/* Responsive text sizing */}
+          <span className="text-[clamp(10px,2vw,16px)] font-bold text-center leading-tight text-black">
             {displayName}
           </span>
           
           {table.is_taken && table.current_party_size > 0 && (
-            <span className="text-xs text-gray-700 leading-none">
+            <span className="text-[clamp(8px,1.5vw,14px)] text-gray-700 leading-none mt-1">
               {table.current_party_size}
             </span>
           )}
         </div>
       );
     } else {
+      // Empty cell
       return (
         <div
           key={`${x}-${y}`}
-          className="w-16 h-16"
+          style={{ 
+            width: `${tableSize}px`,
+            height: `${tableSize}px`
+          }}
         />
       );
     }
   };
+  
 
   // Render the grid
   const renderGrid = () => {
@@ -538,23 +566,23 @@ export default function GridView({
 
   return (
     <>
-      <div className="bg-white p-6 rounded-lg shadow min-h-screen flex flex-col">
-        <div className="flex-1 flex items-center justify-center">
+      <div className="bg-white p-4 rounded-lg shadow flex flex-col items-center max-w-[90vw] max-h-[80vh]">
+        {/* Main Grid */}
+        <div className="flex items-center justify-center flex-1">
           <div 
-            className="grid gap-2"
+            className="grid p-4 h-full w-full"
             style={{ 
               gridTemplateColumns: `repeat(${layout.width}, 1fr)`,
-              maxWidth: `${layout.width * 68}px`
+              gap: 'clamp(8px, 2vw, 24px)', // Responsive gap
+              maxWidth: '85vw',
+              maxHeight: '65vh'
             }}
           >
             {renderGrid()}
           </div>
         </div>
-    
-        <div className="text-center text-gray-500 text-sm mt-auto">
-          {sections?.length || 0} sections, {tables?.length || 0} tables
-        </div>
       </div>
+
 
       {/* Confirmation Modal */}
       <ConfirmationModal

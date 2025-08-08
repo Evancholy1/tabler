@@ -413,34 +413,34 @@ export default function RestaurantDashboard({
             <button
               onClick={() => setViewMode('grid')}
               className={`
-                p-3 rounded-full transition-all
+                p-[2vw] min-p-[12px] max-p-[24px] rounded-full transition-all
                 ${viewMode === 'grid' 
                   ? 'bg-gray-800 text-white' 
                   : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                 }
               `}
             >
-              <Home size={24} />
+              <Home className="w-[3vw] h-[3vw] min-w-[24px] min-h-[24px] max-w-[40px] max-h-[40px]" />
             </button>
-            
+
             <button
               onClick={() => setViewMode('list')}
               className={`
-                p-3 rounded-full transition-all
+                p-[2vw] min-p-[12px] max-p-[24px] rounded-full transition-all
                 ${viewMode === 'list' 
                   ? 'bg-gray-800 text-white' 
                   : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                 }
               `}
             >
-              <TableIcon size={24} />
+              <TableIcon className="w-[3vw] h-[3vw] min-w-[24px] min-h-[24px] max-w-[40px] max-h-[40px]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-6xl mx-auto p-4">
+      <div className="flex-1 flex items-center justify-center p-4 pb-24">
         {viewMode === 'grid' ? (
           <GridView 
             layout={layout}
@@ -460,49 +460,47 @@ export default function RestaurantDashboard({
             partySize={partySize}
             onUpdateTable={updateTable}
             serviceHistory={serviceHistory}
-          />
+        />
         )}
       </div>
 
-      {/* Bottom Controls */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
-        <div className="max-w-6xl mx-auto p-4">
-          <div className="flex items-center justify-between">
-            {/* Party Size Controls */}
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-600">
-                Number of People
-              </span>
+      {/* Bottom Controls - Fixed height footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg h-20">
+        <div className="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
+          {/* Party Size Controls */}
+          <div className="flex items-center gap-6">
+            <span className="text-lg font-semibold text-gray-700">
+              Number of People
+            </span>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={decrementPartySize}
+                className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+              >
+                <span className="text-xl font-bold">−</span>
+              </button>
               
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={decrementPartySize}
-                  className="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                >
-                  <span className="text-xl font-medium">−</span>
-                </button>
-                
-                <div className="w-16 h-10 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-white">
-                  <span className="text-lg font-medium">{partySize}</span>
-                </div>
-                
-                <button
-                  onClick={incrementPartySize}
-                  className="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                >
-                  <span className="text-xl font-medium">+</span>
-                </button>
+              <div className="w-16 h-12 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-white">
+                <span className="text-xl font-bold">{partySize}</span>
               </div>
+              
+              <button
+                onClick={incrementPartySize}
+                className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+              >
+                <span className="text-xl font-bold">+</span>
+              </button>
             </div>
-
-            {/* Auto Assign Button */}
-            <button
-              onClick={handleAutoAssign}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium transition-colors"
-            >
-              Auto Assign
-            </button>
           </div>
+
+          {/* Auto Assign Button */}
+          <button
+            onClick={handleAutoAssign}
+            className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-semibold text-lg transition-colors"
+          >
+            Auto Assign
+          </button>
         </div>
       </div>
 
