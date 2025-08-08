@@ -213,10 +213,43 @@ export default function RestaurantDashboard({
     );
   };
 
-  // Auto-assign logic
+  // Auto-assign logic prioritizes tables near entrance and to the right specific to pho cafe 
   const handleAutoAssign = () => {
     try {
       const optimalSection = getOptimalSection();
+      
+      // Helper function to sort tables by priority: right first (high x), then front (low y)
+      const sortTablesByPriority = (tables: Table[]) => {
+        return tables.sort((a, b) => {
+          // First priority: higher x_pos (more to the right)
+          if (a.x_pos !== b.x_pos) {
+            return b.x_pos - a.x_pos;
+          }
+          // Second priority: lower y_pos (closer to front)
+          return a.y_pos - b.y_pos;
+        });
+      };
+  
+      // NEW: Enhanced sorting that prioritizes section optimality first
+      const sortTablesBySectionThenPosition = (tables: Table[]) => {
+        return tables.sort((a, b) => {
+          // First priority: is the table in the optimal section?
+          const aInOptimal = a.section_id === optimalSection.id;
+          const bInOptimal = b.section_id === optimalSection.id;
+          
+          if (aInOptimal !== bInOptimal) {
+            return bInOptimal ? 1 : -1; // Optimal section tables come first
+          }
+          
+          // If both are in same section type (optimal or not), sort by position
+          // Higher x_pos first
+          if (a.x_pos !== b.x_pos) {
+            return b.x_pos - a.x_pos;
+          }
+          // Then lower y_pos
+          return a.y_pos - b.y_pos;
+        });
+      };
       
       // Try to find available tables that BELONG to the optimal section
       const availableInSection = getFilteredTables({ 
@@ -227,10 +260,11 @@ export default function RestaurantDashboard({
       
       let selectedTable;
       let assignedSection = optimalSection.id;
-
+  
       if (availableInSection.length > 0) {
-        // Use a table that belongs to the optimal section
-        selectedTable = availableInSection[0];
+        // Sort by priority and use the best positioned table in optimal section
+        const prioritizedTables = sortTablesByPriority(availableInSection);
+        selectedTable = prioritizedTables[0];
       } else {
         // No tables available in optimal section, find any available table
         const allAvailable = getFilteredTables({ 
@@ -246,18 +280,19 @@ export default function RestaurantDashboard({
           return;
         }
         
-        // Use first available table from any section
-        selectedTable = allAvailable[0];
+        // CHANGED: Use section-aware sorting
+        const prioritizedTables = sortTablesBySectionThenPosition(allAvailable);
+        selectedTable = prioritizedTables[0];
         // Keep the optimal section assignment (table will be temporarily moved)
       }
-
+  
       setSelectedSection(assignedSection);
       setSelectedTable(selectedTable.id);
       setShowAssignPopup(true);
-
+  
     } catch (error) {
       console.error('Error in auto-assign:', error);
-      alert('Error occurred during auto-assignment. Please try again.');
+      showError('Assignment Error', 'An error occurred during auto-assignment. Please try again.');
     }
   };
 
