@@ -27,21 +27,21 @@ export default function TableView({ layout, sections, tables, partySize, service
   const optimalSection = getOptimalSection();
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <h2 className="text-xl font-semibold mb-4">Service History</h2>
+    <div className="bg-white rounded-lg shadow flex flex-col h-full w-full max-w-[95vw] max-h-[80vh] mx-auto">
+      <h2 className="text-2xl font-bold p-6 pb-4">Service History</h2>
 
-      {/* T-Chart Layout */}
-      <div className="border-2 border-white h-[500px] flex flex-col">
+      {/* T-Chart Layout - Takes up remaining space */}
+      <div className="border-2 border-white flex-1 flex flex-col mx-6 mb-6">
         {/* Section Headers Row */}
         <div className="grid border-b-2 border-black flex-shrink-0" style={{ gridTemplateColumns: `repeat(${sections.length}, 1fr)` }}>
           {sections.map(section => (
-            <div key={section.id} className="border-r-2 border-black last:border-r-0 p-4 text-center">
-              <div className="text-2xl font-bold">{section.name}</div>
+            <div key={section.id} className="border-r-2 border-black last:border-r-0 p-6 text-center">
+              <div className="text-3xl font-bold">{section.name}</div>
             </div>
           ))}
         </div>
 
-        {/* Tables Content Row - Scrollable */}
+        {/* Tables Content Row - Scrollable and takes most space */}
         <div className="grid flex-1 overflow-hidden" style={{ gridTemplateColumns: `repeat(${sections.length}, 1fr)` }}>
           {sections.map(section => {
             // Get all service history entries for this section, sorted by timestamp
@@ -50,18 +50,18 @@ export default function TableView({ layout, sections, tables, partySize, service
               .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             
             return (
-              <div key={section.id} className="border-r-2 border-black last:border-r-0 p-4 flex flex-col overflow-hidden">
+              <div key={section.id} className="border-r-2 border-black last:border-r-0 p-6 flex flex-col overflow-hidden">
                 {/* Scrollable container for service instances */}
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="flex-1 overflow-y-auto space-y-3">
                   {sectionServices.length === 0 ? (
-                    <div className="text-center text-gray-400 text-lg py-8">
+                    <div className="text-center text-gray-400 text-2xl py-12">
                       No services yet
                     </div>
                   ) : (
                     sectionServices.map(service => (
                       <div 
                         key={service.id}
-                        className="text-center font-bold text-xl py-2 px-2 rounded flex-shrink-0 bg-white"
+                        className="text-center font-bold text-3xl py-3 px-3 rounded flex-shrink-0 bg-white"
                         style={{ color: section.color }}
                         title={`${service.isActive ? 'Currently serving' : 'Service completed'} at ${new Date(service.timestamp).toLocaleTimeString()}. Party size: ${service.partySize} customers.`}
                       >
@@ -82,10 +82,10 @@ export default function TableView({ layout, sections, tables, partySize, service
             const isOptimal = section.id === optimalSection.id;
             
             return (
-              <div key={`total-${section.id}`} className={`border-r-2 border-black last:border-r-0 p-4 text-center ${
+              <div key={`total-${section.id}`} className={`border-r-2 border-black last:border-r-0 p-6 text-center ${
                 isOptimal ? 'bg-yellow-300 animate-pulse' : ''
               }`}>
-                <div className={`text-2xl font-bold ${isOptimal ? 'text-black' : ''}`} style={{ color: isOptimal ? 'black' : section.color }}>
+                <div className={`text-4xl font-bold ${isOptimal ? 'text-black' : ''}`} style={{ color: isOptimal ? 'black' : section.color }}>
                   {currentCustomers}
                 </div>
               </div>
