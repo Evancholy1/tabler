@@ -542,16 +542,16 @@ export default function RestaurantDashboard({
       {/* Assignment Popup */}
       {showAssignPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full mx-8 overflow-hidden">
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-8 space-y-8">
               {/* Section Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                <label className="block text-2xl font-bold text-gray-700 mb-4">Section</label>
                 <select
                   value={selectedSection}
                   onChange={(e) => handleSectionChange(e.target.value)}
-                  className="w-full p-3 border-2 border-purple-200 rounded-lg bg-white focus:border-purple-400 focus:outline-none"
+                  className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
                 >
                   {sections.map(section => (
                     <option key={section.id} value={section.id}>
@@ -563,11 +563,11 @@ export default function RestaurantDashboard({
 
               {/* Table Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Table</label>
+                <label className="block text-2xl font-bold text-gray-700 mb-4">Table</label>
                 <select
                   value={selectedTable}
                   onChange={(e) => setSelectedTable(e.target.value)}
-                  className="w-full p-3 border-2 border-purple-200 rounded-lg bg-white focus:border-purple-400 focus:outline-none"
+                  className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
                 >
                   {/* Tables in selected section first */}
                   {getTablesForPopup(selectedSection).sectionTables.length > 0 && (
@@ -593,59 +593,59 @@ export default function RestaurantDashboard({
                 </select>
               </div>
 
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-6">
+                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <span className="text-sm text-gray-600">People: {partySize}</span>
+                  <span className="text-2xl text-gray-600">People: {partySize}</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-4">
                   <button
                     onClick={decrementPartySize}
-                    className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                    className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
                   >
-                    <span className="text-lg font-medium">−</span>
+                    <span className="text-3xl font-bold">−</span>
                   </button>
-                  <span className="text-xl font-bold w-8 text-center">{partySize}</span>
+                  <span className="text-4xl font-bold w-16 text-center">{partySize}</span>
                   <button
                     onClick={incrementPartySize}
-                    className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                    className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
                   >
-                    <span className="text-lg font-medium">+</span>
+                    <span className="text-3xl font-bold">+</span>
                   </button>
                 </div>
               </div>
 
               {/* Assignment Summary */}
-              <div className="bg-green-50 p-4 rounded-lg">
+              <div className="bg-green-50 p-8 rounded-2xl">
                 <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 mb-2">
+                  <div className="text-6xl font-bold text-black-600 mb-4">
+                      {tables.find(t => t.id === selectedTable)?.name || selectedTable} 
+                    </div>
+                    <div className="text-4xl font-bold text-green-600 mb-4">
                         {sectionDisplayName}:{currentCustomers} → {sectionDisplayName}:{currentCustomers + partySize}
                     </div>
-                  <div className="text-sm text-gray-600">
-                    Table {tables.find(t => t.id === selectedTable)?.name || selectedTable} • {partySize} {partySize === 1 ? 'person' : 'people'}
-                  </div>
                 </div>
               </div>
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex space-x-4 p-6 bg-gray-50">
+            <div className="flex space-x-6 p-8 bg-gray-50">
               <button
                 onClick={() => setShowAssignPopup(false)}
-                className="flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                className="flex-1 bg-red-500 text-white py-6 px-8 rounded-2xl font-bold text-2xl hover:bg-red-600 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmAssignment}
-                className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-600 transition-colors"
+                className="flex-1 bg-green-500 text-white py-6 px-8 rounded-2xl font-bold text-2xl hover:bg-green-600 transition-colors"
               >
                 Confirm
-                </button>
+              </button>
             </div>
           </div>
         </div>
