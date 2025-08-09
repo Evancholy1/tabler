@@ -494,6 +494,7 @@ export default function RestaurantDashboard({
             tables={tables}
             partySize={partySize}
             onUpdateTable={updateTable}
+            onUpdateSection={updateSection}
             serviceHistory={serviceHistory}
         />
         )}
