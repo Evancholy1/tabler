@@ -439,40 +439,40 @@ export default function RestaurantDashboard({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with view toggle */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex justify-center gap-4">
-            {/* View Toggle Icons */}
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`
-                p-[2vw] min-p-[12px] max-p-[24px] rounded-full transition-all
-                ${viewMode === 'grid' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }
-              `}
-            >
-              <Home className="w-[3vw] h-[3vw] min-w-[24px] min-h-[24px] max-w-[40px] max-h-[40px]" />
-            </button>
+  <div className="min-h-screen bg-gray-50">
+    {/* Header with view toggle */}
+    <div className="bg-white shadow-sm border-b">
+      <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="flex justify-center gap-4">
+          {/* View Toggle Icons */}
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`
+              p-4 rounded-full transition-all
+              ${viewMode === 'grid' 
+                ? 'bg-gray-800 text-white' 
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }
+            `}
+          >
+            <Home size={28} />
+          </button>
 
-            <button
-              onClick={() => setViewMode('list')}
-              className={`
-                p-[2vw] min-p-[12px] max-p-[24px] rounded-full transition-all
-                ${viewMode === 'list' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }
-              `}
-            >
-              <TableIcon className="w-[3vw] h-[3vw] min-w-[24px] min-h-[24px] max-w-[40px] max-h-[40px]" />
-            </button>
-          </div>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`
+              p-4 rounded-full transition-all
+              ${viewMode === 'list' 
+                ? 'bg-gray-800 text-white' 
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }
+            `}
+          >
+            <TableIcon size={28} />
+          </button>
         </div>
       </div>
+    </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex items-center justify-center p-4 pb-24">
