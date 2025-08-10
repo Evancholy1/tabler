@@ -438,6 +438,10 @@ export default function RestaurantDashboard({
     return { sectionTables, otherTables };
   };
 
+  const updateServiceHistory = (updatedServiceHistory: ServiceHistoryEntry[]) => {
+  setServiceHistory(updatedServiceHistory);
+  };
+
   return (
   <div className="min-h-screen bg-gray-50">
     {/* Header with view toggle */}
@@ -496,6 +500,7 @@ export default function RestaurantDashboard({
             onUpdateTable={updateTable}
             onUpdateSection={updateSection}
             serviceHistory={serviceHistory}
+            onUpdateServiceHistory={updateServiceHistory}
         />
         )}
       </div>
