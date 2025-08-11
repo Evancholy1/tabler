@@ -10,7 +10,7 @@ interface ConfirmationModalProps {
   tableName: string;
   onConfirm: () => void;
   onCancel: () => void;
-  onMove: () => void; // Add move function
+  onMove: () => void;
 }
 
 interface MoveCustomersModalProps {
@@ -258,23 +258,18 @@ const MoveCustomersModal = ({
   );
 };
 
-// Extended ViewProps to include service history callback AND auto-assign trigger
-interface ExtendedViewProps extends ViewProps {
-  onCreateServiceHistory?: (tableId: string, sectionId: string, partySize: number) => void;
-  onTriggerAutoAssign?: (preselectedTableId?: string) => void; // Add this for triggering popup
-  onUpdateSection?: (sectionId: string, updates: Partial<Section>) => void; // ADD THIS
-}
-
 export default function GridView({ 
   layout, 
   sections, 
   tables,
   partySize, 
   onUpdateTable,
-  onCreateServiceHistory, // Keep for manual removal
-  onTriggerAutoAssign, // Add this prop
+  onCreateServiceHistory,
+  onCompleteService,
+  onMoveService, // ADD THIS
+  onTriggerAutoAssign,
   onUpdateSection
-}: ExtendedViewProps) {
+}: ViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -308,7 +303,7 @@ export default function GridView({
     return '#f3f4f6';
   };
 
-  // RESOLVED: Only handle removing customers - no direct seating
+  // Only handle removing customers - no direct seating
   const toggleTableStatus = async (table: Table) => {
     try {
       // Only handle removing customers (is_taken = false)
@@ -336,7 +331,7 @@ export default function GridView({
     }
   };
 
-// Move customers to another table
+  // Move customers to another table
   const moveCustomers = async (sourceTable: Table, targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => {
     try {
       // Determine the final section assignment
@@ -375,7 +370,15 @@ export default function GridView({
         return;
       }
 
-      // NEW: Update section customer counts only if section assignment changed
+      // Update service history - mark old service as moved and create new one
+      if (onMoveService) {
+        await onMoveService(sourceTable.id);
+      }
+      if (onCreateServiceHistory && finalSectionId) {
+        await onCreateServiceHistory(targetTableId, finalSectionId, sourceTable.current_party_size);
+      }
+
+      // Update section customer counts only if section assignment changed
       if (sourceSectionId && finalSectionId && sourceSectionId !== finalSectionId && onUpdateSection) {
         // Subtract from source section
         const sourceSection = sections.find(s => s.id === sourceSectionId);
@@ -542,7 +545,6 @@ export default function GridView({
     }
   };
   
-
   // Render the grid
   const renderGrid = () => {
     const cells = [];
@@ -582,7 +584,6 @@ export default function GridView({
           </div>
         </div>
       </div>
-
 
       {/* Confirmation Modal */}
       <ConfirmationModal

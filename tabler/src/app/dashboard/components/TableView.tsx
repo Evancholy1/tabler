@@ -12,6 +12,7 @@ interface ServiceHistoryEntry {
   partySize: number;
   timestamp: string;
   isActive: boolean;
+  status: 'active' | 'completed' | 'moved'; // ADD THIS
 }
 
 interface EditCustomerCountModalProps {
@@ -444,9 +445,9 @@ export default function TableView({
           {/* Tables Content Row - Scrollable with fixed height */}
           <div className="grid flex-1 min-h-0" style={{ gridTemplateColumns: `repeat(${sections.length}, 1fr)` }}>
             {sections.map(section => {
-              // Get all service history entries for this section, sorted by timestamp
+              // Get service history entries for this section - exclude only moved services
               const sectionServices = serviceHistory
-                ?.filter(service => service.sectionId === section.id)
+                ?.filter(service => service.sectionId === section.id && service.status !== 'moved')
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) || [];
               
               return (
