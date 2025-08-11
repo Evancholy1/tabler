@@ -29,7 +29,7 @@ export interface Table {
   is_taken: boolean;
   current_party_size: number;
   assigned_at: string;
-  capacity?: number; // Add this optional field
+  capacity?: number;
 }
 
 export interface ViewProps {
@@ -37,5 +37,10 @@ export interface ViewProps {
   sections: Section[];
   tables: Table[];
   partySize: number;
-  onUpdateTable: (tableId: string, updates: Partial<Table>) => void; 
+  onUpdateTable: (tableId: string, updates: Partial<Table>) => void;
+  onCreateServiceHistory?: (tableId: string, sectionId: string, partySize: number) => Promise<string>;
+  onCompleteService?: (tableId: string) => Promise<void>;
+  onMoveService?: (tableId: string) => Promise<void>; // ADD THIS
+  onTriggerAutoAssign?: (preselectedTableId?: string) => void;
+  onUpdateSection?: (sectionId: string, updates: Partial<Section>) => void;
 }

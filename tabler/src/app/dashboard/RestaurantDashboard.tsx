@@ -17,6 +17,7 @@ interface ServiceHistoryEntry {
   partySize: number; // Individual party size for this service (not cumulative)
   timestamp: string;
   isActive: boolean;
+  status: 'active' | 'completed' | 'moved'; // ADD THIS
 }
 
 interface RestaurantDashboardProps {
@@ -131,7 +132,8 @@ export default function RestaurantDashboard({
         sectionId: entry.section_id,
         partySize: entry.party_size,
         timestamp: entry.timestamp,
-        isActive: entry.is_active
+        isActive: entry.is_active,
+        status: entry.status || (entry.is_active ? 'active' : 'completed') // Handle existing data
       }));
 
       setServiceHistory(formattedHistory);
@@ -153,7 +155,8 @@ export default function RestaurantDashboard({
       sectionId,
       partySize,
       timestamp: new Date().toISOString(),
-      isActive: true
+      isActive: true,
+      status: 'active'
     };
 
     try {
@@ -167,7 +170,8 @@ export default function RestaurantDashboard({
           section_id: newEntry.sectionId,
           party_size: newEntry.partySize,
           timestamp: newEntry.timestamp,
-          is_active: newEntry.isActive
+          is_active: newEntry.isActive,
+          status: newEntry.status
         });
 
       if (error) {
@@ -186,13 +190,16 @@ export default function RestaurantDashboard({
     }
   };
 
-  // Function to mark service as completed
+  // Function to mark service as completed (customers left)
   const completeService = async (tableId: string) => {
     try {
-      // Update database
+      // Update database - mark as completed (not moved)
       const { error } = await supabase
         .from('service_history')
-        .update({ is_active: false })
+        .update({ 
+          is_active: false,
+          status: 'completed'
+        })
         .eq('table_id', tableId)
         .eq('is_active', true);
 
@@ -205,13 +212,45 @@ export default function RestaurantDashboard({
       setServiceHistory(prev => 
         prev.map(entry => 
           entry.tableId === tableId && entry.isActive
-            ? { ...entry, isActive: false }
+            ? { ...entry, isActive: false, status: 'completed' as const }
             : entry
         )
       );
       console.log(`Completed service for table ${tableId}`);
     } catch (error) {
       console.error('Failed to complete service:', error);
+    }
+  };
+
+  // NEW: Function to mark service as moved (for customer moves)
+  const moveService = async (tableId: string) => {
+    try {
+      // Update database - mark as moved
+      const { error } = await supabase
+        .from('service_history')
+        .update({ 
+          is_active: false,
+          status: 'moved'
+        })
+        .eq('table_id', tableId)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error marking service as moved:', error);
+        return;
+      }
+
+      // Update local state
+      setServiceHistory(prev => 
+        prev.map(entry => 
+          entry.tableId === tableId && entry.isActive
+            ? { ...entry, isActive: false, status: 'moved' as const }
+            : entry
+        )
+      );
+      console.log(`Marked service as moved for table ${tableId}`);
+    } catch (error) {
+      console.error('Failed to mark service as moved:', error);
     }
   };
 
@@ -606,6 +645,8 @@ export default function RestaurantDashboard({
             partySize={partySize}
             onUpdateTable={updateTable}
             onCreateServiceHistory={addServiceHistoryEntry}
+            onCompleteService={completeService}
+            onMoveService={moveService} // ADD THIS
             onTriggerAutoAssign={handleTriggerAutoAssignFromGrid}
             onUpdateSection={updateSection}
           />
