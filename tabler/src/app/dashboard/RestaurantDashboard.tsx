@@ -1,7 +1,7 @@
 // src/app/app/RestaurantDashboard.tsx
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, Table as TableIcon } from 'lucide-react';
 import GridView from './components/GridView';
 import TableView from './components/TableView';
@@ -24,7 +24,6 @@ interface RestaurantDashboardProps {
   sections: Section[];
   tables: Table[];
 }
-// Add this right after your imports and before the main RestaurantDashboard component
 
 interface ErrorModalProps {
   isOpen: boolean;
@@ -79,7 +78,6 @@ const ErrorModal = ({ isOpen, title, message, onClose }: ErrorModalProps) => {
   );
 };
 
-
 export default function RestaurantDashboard({ 
   layout, 
   sections: initialSections, 
@@ -107,33 +105,157 @@ export default function RestaurantDashboard({
   const sectionDisplayName = selectedSectionData?.name || selectedSection;
   const currentCustomers = selectedSectionData?.customers_served || 0;
 
+  // Load service history on component mount
+  useEffect(() => {
+    loadServiceHistory();
+  }, []);
+
+  // Function to load service history from database
+  const loadServiceHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('service_history')
+        .select('*')
+        .order('timestamp', { ascending: true });
+
+      if (error) {
+        console.error('Error loading service history:', error);
+        return;
+      }
+
+      // Convert database format to component format
+      const formattedHistory: ServiceHistoryEntry[] = data.map(entry => ({
+        id: entry.id,
+        tableId: entry.table_id,
+        tableName: entry.table_name,
+        sectionId: entry.section_id,
+        partySize: entry.party_size,
+        timestamp: entry.timestamp,
+        isActive: entry.is_active
+      }));
+
+      setServiceHistory(formattedHistory);
+      console.log(`Loaded ${formattedHistory.length} service history entries`);
+    } catch (error) {
+      console.error('Failed to load service history:', error);
+    }
+  };
+
   // Function to create new service history entry (individual instances)
-  const addServiceHistoryEntry = (tableId: string, sectionId: string, partySize: number) => {
+  const addServiceHistoryEntry = async (tableId: string, sectionId: string, partySize: number) => {
     const table = tables.find(t => t.id === tableId);
     
+    const newEntryId = `${tableId}-${Date.now()}`;
     const newEntry: ServiceHistoryEntry = {
-      id: `${tableId}-${Date.now()}`, // unique ID
+      id: newEntryId,
       tableId,
       tableName: table?.name || table?.id.slice(-2) || '',
       sectionId,
-      partySize, // Just the individual party size for this service
+      partySize,
       timestamp: new Date().toISOString(),
       isActive: true
     };
 
-    setServiceHistory(prev => [...prev, newEntry]);
-    return newEntry.id;
+    try {
+      // Save to database
+      const { error } = await supabase
+        .from('service_history')
+        .insert({
+          id: newEntry.id,
+          table_id: newEntry.tableId,
+          table_name: newEntry.tableName,
+          section_id: newEntry.sectionId,
+          party_size: newEntry.partySize,
+          timestamp: newEntry.timestamp,
+          is_active: newEntry.isActive
+        });
+
+      if (error) {
+        console.error('Error saving service history:', error);
+        alert('Failed to save service history');
+        return newEntry.id;
+      }
+
+      // Update local state
+      setServiceHistory(prev => [...prev, newEntry]);
+      console.log(`Added service history entry: ${newEntry.tableName} → ${newEntry.partySize}`);
+      return newEntry.id;
+    } catch (error) {
+      console.error('Failed to add service history entry:', error);
+      return newEntry.id;
+    }
   };
 
   // Function to mark service as completed
-  const completeService = (tableId: string) => {
-    setServiceHistory(prev => 
-      prev.map(entry => 
-        entry.tableId === tableId && entry.isActive
-          ? { ...entry, isActive: false }
-          : entry
-      )
-    );
+  const completeService = async (tableId: string) => {
+    try {
+      // Update database
+      const { error } = await supabase
+        .from('service_history')
+        .update({ is_active: false })
+        .eq('table_id', tableId)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error completing service:', error);
+        return;
+      }
+
+      // Update local state
+      setServiceHistory(prev => 
+        prev.map(entry => 
+          entry.tableId === tableId && entry.isActive
+            ? { ...entry, isActive: false }
+            : entry
+        )
+      );
+      console.log(`Completed service for table ${tableId}`);
+    } catch (error) {
+      console.error('Failed to complete service:', error);
+    }
+  };
+
+  // Updated updateServiceHistory function to persist changes
+  const updateServiceHistory = async (updatedServiceHistory: ServiceHistoryEntry[]) => {
+    // Find what changed by comparing with current state
+    const currentEntry = serviceHistory.find(entry => {
+      const updatedEntry = updatedServiceHistory.find(updated => updated.id === entry.id);
+      return updatedEntry && (
+        updatedEntry.tableName !== entry.tableName || 
+        updatedEntry.partySize !== entry.partySize
+      );
+    });
+
+    if (currentEntry) {
+      const updatedEntry = updatedServiceHistory.find(entry => entry.id === currentEntry.id);
+      if (updatedEntry) {
+        try {
+          // Update database
+          const { error } = await supabase
+            .from('service_history')
+            .update({
+              table_name: updatedEntry.tableName,
+              party_size: updatedEntry.partySize
+            })
+            .eq('id', updatedEntry.id);
+
+          if (error) {
+            console.error('Error updating service history:', error);
+            alert('Failed to update service history');
+            return;
+          }
+
+          console.log(`Updated service history: ${currentEntry.tableName} → ${updatedEntry.tableName}, ${currentEntry.partySize} → ${updatedEntry.partySize}`);
+        } catch (error) {
+          console.error('Failed to update service history:', error);
+          alert('An error occurred while updating service history');
+          return;
+        }
+      }
+    }
+
+    // Update local state
+    setServiceHistory(updatedServiceHistory);
   };
 
   const [errorModal, setErrorModal] = useState<{
@@ -176,7 +298,7 @@ export default function RestaurantDashboard({
     setPartySize(prev => Math.max(prev - 1, 1)); // Min 1 person
   };
 
-  // FIXED: Table filtering function - check table.section_id (home section) not current_section
+  // Table filtering function - check table.section_id (home section) not current_section
   const getFilteredTables = (filters: {
     sectionId?: string; // returns tables of the same section
     availableOnly?: boolean; // returns available tables
@@ -185,7 +307,7 @@ export default function RestaurantDashboard({
   }) => {
     return tables.filter(table => {
       if (filters.sectionId && !filters.excludeSection) {
-        // FIXED: Check against section_id (table's home section), not current_section
+        // Check against section_id (table's home section), not current_section
         if (table.section_id !== filters.sectionId) return false;
       }
 
@@ -230,7 +352,7 @@ export default function RestaurantDashboard({
         });
       };
   
-      // NEW: Enhanced sorting that prioritizes section optimality first
+      // Enhanced sorting that prioritizes section optimality first
       const sortTablesBySectionThenPosition = (tables: Table[]) => {
         return tables.sort((a, b) => {
           // First priority: is the table in the optimal section?
@@ -280,7 +402,7 @@ export default function RestaurantDashboard({
           return;
         }
         
-        // CHANGED: Use section-aware sorting
+        // Use section-aware sorting
         const prioritizedTables = sortTablesBySectionThenPosition(allAvailable);
         selectedTable = prioritizedTables[0];
         // Keep the optimal section assignment (table will be temporarily moved)
@@ -296,7 +418,7 @@ export default function RestaurantDashboard({
     }
   };
 
-  // NEW: Handle clicking empty tables from GridView
+  // Handle clicking empty tables from GridView
   const handleTriggerAutoAssignFromGrid = (preselectedTableId?: string) => {
     const optimalSection = getOptimalSection();
     
@@ -397,7 +519,7 @@ export default function RestaurantDashboard({
       });
 
       // Create service history entry
-      addServiceHistoryEntry(selectedTable, selectedSection, partySize);
+      await addServiceHistoryEntry(selectedTable, selectedSection, partySize);
 
       // Update section customer count
       const { error: sectionUpdateError } = await supabase
@@ -438,45 +560,41 @@ export default function RestaurantDashboard({
     return { sectionTables, otherTables };
   };
 
-  const updateServiceHistory = (updatedServiceHistory: ServiceHistoryEntry[]) => {
-  setServiceHistory(updatedServiceHistory);
-  };
-
   return (
-  <div className="min-h-screen bg-gray-50">
-    {/* Header with view toggle */}
-    <div className="bg-white shadow-sm border-b">
-      <div className="max-w-6xl mx-auto px-4 py-4">
-        <div className="flex justify-center gap-4">
-          {/* View Toggle Icons */}
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`
-              p-4 rounded-full transition-all
-              ${viewMode === 'grid' 
-                ? 'bg-gray-800 text-white' 
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }
-            `}
-          >
-            <Home size={28} />
-          </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with view toggle */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex justify-center gap-4">
+            {/* View Toggle Icons */}
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`
+                p-4 rounded-full transition-all
+                ${viewMode === 'grid' 
+                  ? 'bg-gray-800 text-white' 
+                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }
+              `}
+            >
+              <Home size={28} />
+            </button>
 
-          <button
-            onClick={() => setViewMode('list')}
-            className={`
-              p-4 rounded-full transition-all
-              ${viewMode === 'list' 
-                ? 'bg-gray-800 text-white' 
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }
-            `}
-          >
-            <TableIcon size={28} />
-          </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`
+                p-4 rounded-full transition-all
+                ${viewMode === 'list' 
+                  ? 'bg-gray-800 text-white' 
+                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }
+              `}
+            >
+              <TableIcon size={28} />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex items-center justify-center p-4 pb-24">
@@ -501,7 +619,7 @@ export default function RestaurantDashboard({
             onUpdateSection={updateSection}
             serviceHistory={serviceHistory}
             onUpdateServiceHistory={updateServiceHistory}
-        />
+          />
         )}
       </div>
 
@@ -656,7 +774,8 @@ export default function RestaurantDashboard({
           </div>
         </div>
       )}
-        <ErrorModal
+      
+      <ErrorModal
         isOpen={errorModal.isOpen}
         title={errorModal.title}
         message={errorModal.message}
