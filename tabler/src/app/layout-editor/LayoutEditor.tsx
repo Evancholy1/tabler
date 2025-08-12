@@ -284,55 +284,54 @@ export default function LayoutEditor({
   };
 
   const saveAllTables = async () => {
-    try {
-      const unsavedTables = tables.filter(table => table.id.startsWith('temp-'))
+  try {
+    const unsavedTables = tables.filter(table => table.id.startsWith('temp-'));
+    const existingTables = tables.filter(table => !table.id.startsWith('temp-'));
 
-      if (unsavedTables.length === 0) {
-        console.log('No tables to save');
-        return;
+    // Save new tables
+    if (unsavedTables.length > 0) {
+      const tablesToSave = unsavedTables.map(table => ({
+        layout_id: table.layout_id,
+        section_id: table.section_id,
+        current_section: table.current_section,
+        x_pos: table.x_pos,
+        y_pos: table.y_pos,
+        name: table.name,
+        is_taken: table.is_taken,
+        current_party_size: table.current_party_size,
+        capacity: table.capacity
+      }));
+
+      const { data: savedTables, error: insertError } = await supabase
+        .from('tables')
+        .insert(tablesToSave)
+        .select();
+
+      if (insertError) throw insertError;
     }
 
-    const tablesToSave = unsavedTables.map(table => ({
-      layout_id: table.layout_id,
-      section_id: table.section_id,
-      current_section: table.current_section,
-      x_pos: table.x_pos,
-      y_pos: table.y_pos,
-      name: table.name,
-      is_taken: table.is_taken,
-      current_party_size: table.current_party_size,
-      capacity: table.capacity
-    }));
+    // Update existing tables
+    for (const table of existingTables) {
+      const { error } = await supabase
+        .from('tables')
+        .update({
+          section_id: table.section_id,
+          current_section: table.current_section,
+          name: table.name,
+          capacity: table.capacity
+        })
+        .eq('id', table.id);
 
-    const { data: savedTables, error } = await supabase
-      .from('tables')
-      .insert(tablesToSave)
-      .select();
-
-    if (error) {
-      console.error('Error saving tables:', error);
-      return;
+      if (error) throw error;
     }
-    setTables(prevTables => {
-      const newTables = [...prevTables];
-      
-      // Replace temp tables with saved tables
-      unsavedTables.forEach((tempTable, index) => {
-        const tempIndex = newTables.findIndex(t => t.id === tempTable.id);
-        if (tempIndex !== -1 && savedTables[index]) {
-          newTables[tempIndex] = savedTables[index];
-        }
-      });
-      
-      return newTables;
-  });
 
     console.log('All tables saved successfully!');
     
   } catch (error) {
     console.error('Failed to save tables:', error);
+    throw error;
   }
-  };  
+};
 
 
 // remove table from array

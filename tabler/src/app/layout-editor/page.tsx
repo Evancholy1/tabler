@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import LayoutEditor from './LayoutEditor';
 
+export const dynamic = 'force-dynamic';
 export default async function LayoutEditorPage() {
   const cookieStore = await cookies();
   
