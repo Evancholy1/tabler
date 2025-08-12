@@ -20,6 +20,8 @@ export default function SettingsPage() {
   const [userData, setUserData] = useState<UserRecord | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -65,36 +67,76 @@ export default function SettingsPage() {
   }, []);
 
   const handleResetLayout = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    setIsResetting(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // 1. Delete layouts
-    await supabase
-      .from('layouts')
-      .delete()
-      .eq('owner_user_id', user.id);
+      // Get user's layout IDs first
+      const { data: layouts } = await supabase
+        .from('layouts')
+        .select('id')
+        .eq('owner_user_id', user.id);
 
-    // 2. Set is_setup = false
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ is_setup: false })
-      .eq('id', user.id);
+      const layoutIds = layouts?.map(l => l.id) || [];
 
-    if (updateError) {
-      alert('Layout reset failed.');
-      console.error(updateError);
-      return;
+      if (layoutIds.length > 0) {
+        // 1. Delete tables first (they reference layouts)
+        await supabase
+          .from('tables')
+          .delete()
+          .in('layout_id', layoutIds);
+
+        // 2. Delete sections (they also reference layouts)
+        await supabase
+          .from('sections')
+          .delete()
+          .in('layout_id', layoutIds);
+
+        // 3. Now delete layouts
+        await supabase
+          .from('layouts')
+          .delete()
+          .eq('owner_user_id', user.id);
+      }
+
+      // 4. Set is_setup = false
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ is_setup: false })
+        .eq('id', user.id);
+
+      if (updateError) {
+        alert('Layout reset failed.');
+        console.error(updateError);
+        return;
+      }
+
+      // 5. Update local state
+      setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
+      setSections([]); // Clear sections from UI
+
+      // 6. Close confirmation modal
+      setShowResetConfirm(false);
+
+      // 7. Redirect to dashboard
+      router.push('/dashboard');
+      
+    } catch (error) {
+      console.error('Error resetting layout:', error);
+      alert('Layout reset failed. Please try again.');
+    } finally {
+      setIsResetting(false);
     }
-
-    // 3. Update local state
-    setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
-
-    // 4. Redirect to home
-    router.push('/setup-layout');
   };
 
   const handleClose = () => {
     router.push('/dashboard');
+  };
+
+  const cancelReset = () => {
+    setShowResetConfirm(false);
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -106,7 +148,7 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-xl font-bold">Pho Cafe</p>
+            <p className="text-xl font-bold">Settings</p>
             <p className="text-sm text-gray-500">{userData.email}</p>
           </div>
           <button 
@@ -149,10 +191,11 @@ export default function SettingsPage() {
         {/* Buttons */}
         <div className="flex items-center justify-between pt-4">
           <button
-            onClick={handleResetLayout}
+            onClick={() => setShowResetConfirm(true)}
             className="text-red-600 border border-red-600 px-4 py-2 rounded hover:bg-red-50 transition"
+            disabled={isResetting}
           >
-            Reset Layout
+            {isResetting ? 'Resetting...' : 'Reset Layout'}
           </button>
           <button
             onClick={async () => {
@@ -180,6 +223,43 @@ export default function SettingsPage() {
             Edit Sections
           </button>
         </div>
+
+        {/* Reset Confirmation Modal */}
+        {showResetConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-3 text-gray-900">Reset Layout</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to reset your layout? This will permanently delete:
+              </p>
+              <ul className="text-sm text-gray-600 mb-6 ml-4 space-y-1">
+                <li>• All tables and their positions</li>
+                <li>• All sections and their configurations</li>
+                <li>• Your entire restaurant layout</li>
+              </ul>
+              <p className="text-red-600 text-sm mb-6 font-medium">
+                This action cannot be undone.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelReset}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={isResetting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetLayout}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isResetting}
+                >
+                  {isResetting ? 'Resetting...' : 'Reset Layout'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
