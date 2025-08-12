@@ -90,7 +90,7 @@ export default function SettingsPage() {
     setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
 
     // 4. Redirect to home
-    router.push('/dashboard');
+    router.push('/setup-layout');
   };
 
   const handleClose = () => {
