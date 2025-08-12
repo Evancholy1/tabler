@@ -90,7 +90,11 @@ export default function SettingsPage() {
     setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
 
     // 4. Redirect to home
-    router.push('/');
+    router.push('/dashboard');
+  };
+
+  const handleClose = () => {
+    router.push('/dashboard');
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -105,7 +109,12 @@ export default function SettingsPage() {
             <p className="text-xl font-bold">Pho Cafe</p>
             <p className="text-sm text-gray-500">{userData.email}</p>
           </div>
-          <button className="text-2xl text-gray-400 hover:text-gray-600">×</button>
+          <button 
+            onClick={handleClose}
+            className="text-2xl text-gray-400 hover:text-gray-600"
+          >
+            ×
+          </button>
         </div>
 
         <hr />
@@ -146,31 +155,30 @@ export default function SettingsPage() {
             Reset Layout
           </button>
           <button
-  onClick={async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+            onClick={async () => {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) return;
 
-    const { error } = await supabase
-      .from('users')
-      .update({ is_setup: false })
-      .eq('id', user.id);
+              const { error } = await supabase
+                .from('users')
+                .update({ is_setup: false })
+                .eq('id', user.id);
 
-    if (error) {
-      alert('Failed to update setup status.');
-      console.error(error);
-      return;
-    }
+              if (error) {
+                alert('Failed to update setup status.');
+                console.error(error);
+                return;
+              }
 
-    // Optionally update local state
-    setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
+              // Optionally update local state
+              setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
 
-    router.push('/layout-editor');
-  }}
-  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
->
-  Edit Sections
-</button>
-
+              router.push('/layout-editor');
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          >
+            Edit Sections
+          </button>
         </div>
       </div>
     </div>
