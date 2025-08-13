@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import ColorPicker from '@/app/setup-layout/components/ColorPicker';
 
 type UserRecord = {
   id: string;
@@ -22,6 +23,10 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
+  const [savingSectionId, setSavingSectionId] = useState<string | null>(null);
+  const [updatingColorId, setUpdatingColorId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -231,7 +236,7 @@ export default function SettingsPage() {
       
     } catch (error) {
       console.error('Unexpected error resetting layout:', error);
-      //alert(`Unexpected error: ${error.message || 'Unknown error'}`);
+     // alert(`Unexpected error: ${error.message || 'Unknown error'}`);
     } finally {
       setIsResetting(false);
     }
@@ -243,6 +248,89 @@ export default function SettingsPage() {
 
   const cancelReset = () => {
     setShowResetConfirm(false);
+  };
+
+  const startEditingSectionName = (section: Section) => {
+    setEditingSectionId(section.id);
+    setEditingSectionName(section.name);
+  };
+
+  const cancelEditingSectionName = () => {
+    setEditingSectionId(null);
+    setEditingSectionName('');
+  };
+
+  const saveSectionName = async (sectionId: string) => {
+    if (!editingSectionName.trim()) {
+      alert('Section name cannot be empty');
+      return;
+    }
+
+    setSavingSectionId(sectionId);
+    
+    try {
+      const { error } = await supabase
+        .from('sections')
+        .update({ name: editingSectionName.trim() })
+        .eq('id', sectionId);
+
+      if (error) {
+        console.error('Error updating section name:', error);
+        alert('Failed to update section name');
+        return;
+      }
+
+      // Update local state
+      setSections(prevSections =>
+        prevSections.map(section =>
+          section.id === sectionId
+            ? { ...section, name: editingSectionName.trim() }
+            : section
+        )
+      );
+
+      // Reset editing state
+      setEditingSectionId(null);
+      setEditingSectionName('');
+
+    } catch (error) {
+      console.error('Unexpected error updating section:', error);
+      alert('Failed to update section name');
+    } finally {
+      setSavingSectionId(null);
+    }
+  };
+
+  const updateSectionColor = async (sectionId: string, newColor: string) => {
+    setUpdatingColorId(sectionId);
+    
+    try {
+      const { error } = await supabase
+        .from('sections')
+        .update({ color: newColor })
+        .eq('id', sectionId);
+
+      if (error) {
+        console.error('Error updating section color:', error);
+        alert('Failed to update section color');
+        return;
+      }
+
+      // Update local state
+      setSections(prevSections =>
+        prevSections.map(section =>
+          section.id === sectionId
+            ? { ...section, color: newColor }
+            : section
+        )
+      );
+
+    } catch (error) {
+      console.error('Unexpected error updating section color:', error);
+      alert('Failed to update section color');
+    } finally {
+      setUpdatingColorId(null);
+    }
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -271,24 +359,75 @@ export default function SettingsPage() {
         <div className="space-y-6 text-sm">
           <SettingRow label="User ID" value={userData.id} />
           <SettingRow label="Email account" value={userData.email} />
-           
+          
         </div>
 
         {/* Section List */}
         <div>
           <h2 className="text-md font-medium mt-4 mb-2">Sections</h2>
           {sections.length > 0 ? (
-            <ul className="space-y-2">
+            <div className="space-y-2">
               {sections.map(section => (
-                <li key={section.id} className="flex items-center space-x-3 text-sm text-gray-700">
-                  <span
-                    className="w-3 h-3 rounded-full inline-block border"
-                    style={{ backgroundColor: section.color }}
-                  ></span>
-                  <span>{section.name}</span>
-                </li>
+                <div key={section.id} className="flex items-center space-x-3 text-sm text-gray-700 group">
+                  {/* Color Picker */}
+                  <div className="flex-shrink-0">
+                    <ColorPicker
+                      color={section.color}
+                      onChange={(newColor) => updateSectionColor(section.id, newColor)}
+                      sectionName={section.name}
+                    />
+                  </div>
+                  
+                  {editingSectionId === section.id ? (
+                    // Edit mode
+                    <div className="flex items-center space-x-2 flex-1">
+                      <input
+                        type="text"
+                        value={editingSectionName}
+                        onChange={(e) => setEditingSectionName(e.target.value)}
+                        className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveSectionName(section.id);
+                          if (e.key === 'Escape') cancelEditingSectionName();
+                        }}
+                        disabled={savingSectionId === section.id}
+                      />
+                      <button
+                        onClick={() => saveSectionName(section.id)}
+                        disabled={savingSectionId === section.id}
+                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingSectionId === section.id ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={cancelEditingSectionName}
+                        disabled={savingSectionId === section.id}
+                        className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    // View mode
+                    <div className="flex items-center justify-between flex-1">
+                      <span className="flex-1">{section.name}</span>
+                      <div className="flex items-center space-x-2">
+                        {updatingColorId === section.id && (
+                          <span className="text-xs text-gray-500">Updating...</span>
+                        )}
+                        <button
+                          onClick={() => startEditingSectionName(section)}
+                          className="opacity-0 group-hover:opacity-100 text-xs text-blue-600 hover:text-blue-800 transition-opacity"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
             <p className="text-sm text-gray-500">No sections found.</p>
           )}
