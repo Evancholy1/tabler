@@ -170,33 +170,3 @@ export default function RegisterForm() {
   );
 }
 
-/*
-🎓 KEY CHANGES EXPLAINED:
-
-1. **Fixed Database Insert:**
-   OLD: user_id: parseInt(user.id) ❌ 
-   NEW: id: user.id ✅
-   
-   - Your database 'id' column is TEXT, not INT
-   - Supabase user.id is already a string UUID
-   - No conversion needed!
-
-2. **Proper Error Handling:**
-   - Try/catch blocks for unexpected errors
-   - Proper loading state management
-   - Clear error messages
-
-3. **Database Schema Match:**
-   - id: TEXT (matches Supabase user.id)
-   - email: TEXT 
-   - is_setup: BOOLEAN
-   - created_at, updated_at: auto-generated
-
-4. **Registration Flow:**
-   1. User fills form
-   2. Create Supabase auth user
-   3. Create record in YOUR users table
-   4. Redirect to login page
-   5. User confirms email
-   6. User can then login
-*/
