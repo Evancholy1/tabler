@@ -73,59 +73,165 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('Starting reset for user:', user.id);
+
+      // Alternative approach: Use RPC (Remote Procedure Call) to handle complex deletions
+      // First, let's try to reset sections by clearing their references
+      
       // Get user's layout IDs first
-      const { data: layouts } = await supabase
+      const { data: layouts, error: layoutFetchError } = await supabase
         .from('layouts')
         .select('id')
         .eq('owner_user_id', user.id);
 
-      const layoutIds = layouts?.map(l => l.id) || [];
-
-      if (layoutIds.length > 0) {
-        // 1. Delete tables first (they reference layouts)
-        await supabase
-          .from('tables')
-          .delete()
-          .in('layout_id', layoutIds);
-
-        // 2. Delete sections (they also reference layouts)
-        await supabase
-          .from('sections')
-          .delete()
-          .in('layout_id', layoutIds);
-
-        // 3. Now delete layouts
-        await supabase
-          .from('layouts')
-          .delete()
-          .eq('owner_user_id', user.id);
+      if (layoutFetchError) {
+        console.error('Error fetching layouts:', layoutFetchError);
+        alert(`Error fetching layouts: ${layoutFetchError.message}`);
+        return;
       }
 
-      // 4. Set is_setup = false
+      const layoutIds = layouts?.map(l => l.id) || [];
+      console.log('Found layout IDs:', layoutIds);
+
+      if (layoutIds.length === 0) {
+        console.log('No layouts found to delete');
+        // Still update user setup status
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ is_setup: false })
+          .eq('id', user.id);
+
+        if (updateError) {
+          console.error('Error updating user:', updateError);
+          alert(`Error updating user: ${updateError.message}`);
+          return;
+        }
+
+        setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
+        setShowResetConfirm(false);
+        router.push('/setup-layout');
+        return;
+      }
+
+      // Get section IDs for this layout
+      const { data: sectionsData, error: sectionsFetchError } = await supabase
+        .from('sections')
+        .select('id')
+        .in('layout_id', layoutIds);
+
+      if (sectionsFetchError) {
+        console.error('Error fetching sections:', sectionsFetchError);
+        alert(`Error fetching sections: ${sectionsFetchError.message}`);
+        return;
+      }
+
+      const sectionIds = sectionsData?.map(s => s.id) || [];
+      console.log('Found section IDs:', sectionIds);
+
+      // 1. Clear waiter assignments from sections (set waiter_id to null)
+      if (sectionIds.length > 0) {
+        console.log('Clearing waiter assignments from sections...');
+        const { error: clearWaitersError } = await supabase
+          .from('sections')
+          .update({ waiter_id: null })
+          .in('id', sectionIds);
+
+        if (clearWaitersError) {
+          console.error('Error clearing waiter assignments:', clearWaitersError);
+          alert(`Error clearing waiter assignments: ${clearWaitersError.message}`);
+          return;
+        }
+        console.log('Waiter assignments cleared');
+      }
+
+      // 2. Delete service history (references sections)
+      if (sectionIds.length > 0) {
+        console.log('Deleting service history...');
+        const { error: serviceHistoryError, count: deletedServiceHistory } = await supabase
+          .from('service_history')
+          .delete({ count: 'exact' })
+          .in('section_id', sectionIds);
+
+        if (serviceHistoryError) {
+          console.error('Error deleting service history:', serviceHistoryError);
+          alert(`Error deleting service history: ${serviceHistoryError.message}`);
+          return;
+        }
+        console.log(`Successfully deleted ${deletedServiceHistory || 0} service history records`);
+      }
+
+      // 3. Delete tables (they reference layouts via layout_id)
+      console.log('Deleting tables...');
+      const { error: tablesError, count: deletedTables } = await supabase
+        .from('tables')
+        .delete({ count: 'exact' })
+        .in('layout_id', layoutIds);
+
+      if (tablesError) {
+        console.error('Error deleting tables:', tablesError);
+        alert(`Error deleting tables: ${tablesError.message}`);
+        return;
+      }
+      console.log(`Successfully deleted ${deletedTables || 0} tables`);
+
+      // 4. Now try to delete sections again
+      console.log('Deleting sections...');
+      const { error: sectionsError, count: deletedSections } = await supabase
+        .from('sections')
+        .delete({ count: 'exact' })
+        .in('layout_id', layoutIds);
+
+      if (sectionsError) {
+        console.error('Error deleting sections:', sectionsError);
+        console.error('Section error details:', sectionsError);
+        alert(`Error deleting sections: ${sectionsError.message}`);
+        return;
+      }
+      console.log(`Successfully deleted ${deletedSections || 0} sections`);
+
+      // 5. Finally delete layouts
+      console.log('Deleting layouts...');
+      const { error: layoutsError, count: deletedLayouts } = await supabase
+        .from('layouts')
+        .delete({ count: 'exact' })
+        .eq('owner_user_id', user.id);
+
+      if (layoutsError) {
+        console.error('Error deleting layouts:', layoutsError);
+        alert(`Error deleting layouts: ${layoutsError.message}`);
+        return;
+      }
+      console.log(`Successfully deleted ${deletedLayouts || 0} layouts`);
+
+      // 6. Set is_setup = false
+      console.log('Updating user setup status...');
       const { error: updateError } = await supabase
         .from('users')
         .update({ is_setup: false })
         .eq('id', user.id);
 
       if (updateError) {
-        alert('Layout reset failed.');
-        console.error(updateError);
+        console.error('Error updating user:', updateError);
+        alert(`Error updating user: ${updateError.message}`);
         return;
       }
+      console.log('User setup status updated successfully');
 
-      // 5. Update local state
+      // 7. Update local state
       setUserData(prev => prev ? { ...prev, is_setup: false } : prev);
       setSections([]); // Clear sections from UI
 
-      // 6. Close confirmation modal
+      // 8. Close confirmation modal
       setShowResetConfirm(false);
 
-      // 7. Redirect to dashboard
-      router.push('/dashboard');
+      console.log('Layout reset completed successfully');
+      
+      // 9. Redirect to setup-layout
+      router.push('/setup-layout');
       
     } catch (error) {
-      console.error('Error resetting layout:', error);
-      alert('Layout reset failed. Please try again.');
+      console.error('Unexpected error resetting layout:', error);
+      //alert(`Unexpected error: ${error.message || 'Unknown error'}`);
     } finally {
       setIsResetting(false);
     }
@@ -165,7 +271,7 @@ export default function SettingsPage() {
         <div className="space-y-6 text-sm">
           <SettingRow label="User ID" value={userData.id} />
           <SettingRow label="Email account" value={userData.email} />
-          <SettingRow label="Layout Setup Complete" value={userData.is_setup ? 'Yes' : 'No'} />
+           
         </div>
 
         {/* Section List */}
