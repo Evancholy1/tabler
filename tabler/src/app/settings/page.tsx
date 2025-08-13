@@ -27,6 +27,8 @@ export default function SettingsPage() {
   const [editingSectionName, setEditingSectionName] = useState('');
   const [savingSectionId, setSavingSectionId] = useState<string | null>(null);
   const [updatingColorId, setUpdatingColorId] = useState<string | null>(null);
+  const [showHistoryResetConfirm, setShowHistoryResetConfirm] = useState(false);
+  const [isResettingHistory, setIsResettingHistory] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -236,7 +238,7 @@ export default function SettingsPage() {
       
     } catch (error) {
       console.error('Unexpected error resetting layout:', error);
-     // alert(`Unexpected error: ${error.message || 'Unknown error'}`);
+      //alert(`Unexpected error: ${error.message || 'Unknown error'}`);
     } finally {
       setIsResetting(false);
     }
@@ -331,6 +333,122 @@ export default function SettingsPage() {
     } finally {
       setUpdatingColorId(null);
     }
+  };
+
+  const handleResetCustomerHistory = async () => {
+    setIsResettingHistory(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log('Starting customer history reset for user:', user.id);
+
+      // Get user's layout IDs
+      const { data: layouts, error: layoutFetchError } = await supabase
+        .from('layouts')
+        .select('id')
+        .eq('owner_user_id', user.id);
+
+      if (layoutFetchError) {
+        console.error('Error fetching layouts:', layoutFetchError);
+        alert(`Error fetching layouts: ${layoutFetchError.message}`);
+        return;
+      }
+
+      const layoutIds = layouts?.map(l => l.id) || [];
+      console.log('Found layout IDs:', layoutIds);
+
+      if (layoutIds.length === 0) {
+        console.log('No layouts found');
+        setShowHistoryResetConfirm(false);
+        return;
+      }
+
+      // Get section IDs for this layout
+      const { data: sectionsData, error: sectionsFetchError } = await supabase
+        .from('sections')
+        .select('id')
+        .in('layout_id', layoutIds);
+
+      if (sectionsFetchError) {
+        console.error('Error fetching sections:', sectionsFetchError);
+        alert(`Error fetching sections: ${sectionsFetchError.message}`);
+        return;
+      }
+
+      const sectionIds = sectionsData?.map(s => s.id) || [];
+      console.log('Found section IDs:', sectionIds);
+
+      // 1. Clear service history
+      if (sectionIds.length > 0) {
+        console.log('Clearing service history...');
+        const { error: serviceHistoryError, count: deletedServiceHistory } = await supabase
+          .from('service_history')
+          .delete({ count: 'exact' })
+          .in('section_id', sectionIds);
+
+        if (serviceHistoryError) {
+          console.error('Error clearing service history:', serviceHistoryError);
+          alert(`Error clearing service history: ${serviceHistoryError.message}`);
+          return;
+        }
+        console.log(`Successfully cleared ${deletedServiceHistory || 0} service history records`);
+
+        // 2. Reset customers_served to 0 for all sections
+        console.log('Resetting customers served count...');
+        const { error: sectionsResetError } = await supabase
+          .from('sections')
+          .update({ customers_served: 0 })
+          .in('id', sectionIds);
+
+        if (sectionsResetError) {
+          console.error('Error resetting customers served:', sectionsResetError);
+          alert(`Error resetting customers served: ${sectionsResetError.message}`);
+          return;
+        }
+        console.log('Successfully reset customers served count');
+      }
+
+      // 3. Mark all tables as available
+      console.log('Marking all tables as available...');
+      const { error: tablesResetError } = await supabase
+        .from('tables')
+        .update({ 
+          is_taken: false,
+          current_party_size: 0,
+          assigned_at: null
+        })
+        .in('layout_id', layoutIds);
+
+      if (tablesResetError) {
+        console.error('Error resetting tables:', tablesResetError);
+        alert(`Error resetting tables: ${tablesResetError.message}`);
+        return;
+      }
+      console.log('Successfully marked all tables as available');
+
+      // 4. Update local sections state to reflect customers_served reset
+      setSections(prevSections =>
+        prevSections.map(section => ({ ...section, customers_served: 0 }))
+      );
+
+      // 5. Close confirmation modal
+      setShowHistoryResetConfirm(false);
+
+      console.log('Customer history reset completed successfully');
+      alert('Customer history has been reset successfully! All tables are now available and customer counts have been cleared.');
+      
+    } catch (error) {
+      console.error('Unexpected error resetting customer history:', error);
+      //alert(`Unexpected error: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsResettingHistory(false);
+    }
+  };
+
+  const cancelHistoryReset = () => {
+    setShowHistoryResetConfirm(false);
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -435,13 +553,22 @@ export default function SettingsPage() {
 
         {/* Buttons */}
         <div className="flex items-center justify-between pt-4">
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            className="text-red-600 border border-red-600 px-4 py-2 rounded hover:bg-red-50 transition"
-            disabled={isResetting}
-          >
-            {isResetting ? 'Resetting...' : 'Reset Layout'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="text-red-600 border border-red-600 px-4 py-2 rounded hover:bg-red-50 transition"
+              disabled={isResetting}
+            >
+              {isResetting ? 'Resetting...' : 'Reset Layout'}
+            </button>
+            <button
+              onClick={() => setShowHistoryResetConfirm(true)}
+              className="text-orange-600 border border-orange-600 px-4 py-2 rounded hover:bg-orange-50 transition"
+              disabled={isResettingHistory}
+            >
+              {isResettingHistory ? 'Resetting...' : 'Reset Customer History'}
+            </button>
+          </div>
           <button
             onClick={async () => {
               const { data: { user } } = await supabase.auth.getUser();
@@ -500,6 +627,44 @@ export default function SettingsPage() {
                   disabled={isResetting}
                 >
                   {isResetting ? 'Resetting...' : 'Reset Layout'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Customer History Reset Confirmation Modal */}
+        {showHistoryResetConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-3 text-gray-900">Reset Customer History</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to reset the customer history? This is typically done at the end of each business day. This will:
+              </p>
+              <ul className="text-sm text-gray-600 mb-6 ml-4 space-y-1">
+                <li>• Clear all service history records</li>
+                <li>• Reset customer counts to 0 for all sections</li>
+                <li>• Mark all tables as available</li>
+                <li>• Clear current party sizes from tables</li>
+              </ul>
+              <p className="text-orange-600 text-sm mb-6 font-medium">
+                This action cannot be undone.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelHistoryReset}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={isResettingHistory}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetCustomerHistory}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isResettingHistory}
+                >
+                  {isResettingHistory ? 'Resetting...' : 'Reset History'}
                 </button>
               </div>
             </div>
