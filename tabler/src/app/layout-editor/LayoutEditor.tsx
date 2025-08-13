@@ -6,7 +6,7 @@ import { Layout, Section, Table, LayoutEditorProps } from './types/layout';
 import { SupabaseAuthClient } from '@supabase/supabase-js/dist/module/lib/SupabaseAuthClient';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react';
+import { Trash2, ArrowLeft } from 'lucide-react';
 
 export default function LayoutEditor({ 
   layout, 
@@ -36,6 +36,11 @@ export default function LayoutEditor({
   const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
 
   const[newTableCapacity, setNewTableCapacity] = useState<number>(4);
+
+  // Handle back button navigation
+  const handleBackToSetup = () => {
+    router.push('/setup-layout');
+  };
 
   
   const updateTableCapacity = (tableId: string, newCapacity: number) => {
@@ -362,7 +367,20 @@ const cancelDelete = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4 rounded-2xl border">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Layout Editor</h1>
+        {/* Header with Back Button */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBackToSetup}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} />
+              <span className="font-medium">Back to Setup</span>
+            </button>
+            <div className="h-6 w-px bg-gray-300"></div>
+            <h1 className="text-3xl font-bold">Layout Editor</h1>
+          </div>
+        </div>
         
         <div className="flex gap-6">
           {/* Main Grid */}
