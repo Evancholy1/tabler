@@ -736,7 +736,7 @@ export default function RestaurantDashboard({
                 >
                   {/* Tables in selected section first */}
                   {getTablesForPopup(selectedSection).sectionTables.length > 0 && (
-                    <optgroup label={`Section ${selectedSection} Tables`}>
+                   <optgroup label={`${sections.find(s => s.id === selectedSection)?.name || selectedSection}'s Tables`}>
                       {getTablesForPopup(selectedSection).sectionTables.map(table => (
                         <option key={table.id} value={table.id}>
                           {table.name || table.id} 
