@@ -1,5 +1,5 @@
 // src/app/app/components/TableView.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { ViewProps, Section } from '../types/dashboard';
 
@@ -12,7 +12,7 @@ interface ServiceHistoryEntry {
   partySize: number;
   timestamp: string;
   isActive: boolean;
-  status: 'active' | 'completed' | 'moved'; // ADD THIS
+  status: 'active' | 'completed' | 'moved';
 }
 
 interface EditCustomerCountModalProps {
@@ -33,12 +33,12 @@ interface EditServiceEntryModalProps {
 const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCustomerCountModalProps) => {
   const [inputValue, setInputValue] = useState('');
 
-  // Update input value when section changes
-  useState(() => {
-    if (section) {
+  // Update input value when section changes or modal opens
+  useEffect(() => {
+    if (section && isOpen) {
       setInputValue(section.customers_served.toString());
     }
-  });
+  }, [section, isOpen]);
 
   if (!isOpen || !section) return null;
 
@@ -62,6 +62,10 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
     }
   };
 
+  const currentValue = parseInt(inputValue, 10) || 0;
+  const originalValue = section.customers_served;
+  const difference = currentValue - originalValue;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
@@ -77,7 +81,7 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Number of Customers Served
+              Total Customers Served
             </label>
             
             {/* Counter Controls */}
@@ -86,6 +90,7 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
                 type="button"
                 onClick={handleDecrement}
                 className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
+                disabled={currentValue <= 0}
               >
                 −
               </button>
@@ -108,11 +113,20 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
             </div>
           </div>
 
-          {/* Summary */}
+          {/* Summary with change indicator */}
           <div className="bg-gray-50 p-4 rounded-lg text-center">
-            <div className="text-sm text-gray-600">
-              Current: <span className="font-bold">{section.customers_served}</span> → 
-              New: <span className="font-bold" style={{ color: section.color }}>{inputValue || '0'}</span>
+            <div className="text-sm text-gray-600 space-y-1">
+              <div>
+                <strong>Original:</strong> {originalValue} customers
+              </div>
+              <div>
+                <strong>New:</strong> <span className="font-bold" style={{ color: section.color }}>{currentValue} customers</span>
+              </div>
+              {difference !== 0 && (
+                <div className={`font-bold ${difference > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {difference > 0 ? '+' : ''}{difference} change
+                </div>
+              )}
             </div>
           </div>
 
@@ -127,8 +141,9 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
             </button>
             <button
               type="submit"
-              className="flex-1 text-white py-3 px-6 rounded-lg font-medium transition-colors"
-              style={{ backgroundColor: section.color }}
+              disabled={currentValue < 0}
+              className="flex-1 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              style={{ backgroundColor: currentValue < 0 ? undefined : section.color }}
             >
               Update Count
             </button>
@@ -144,7 +159,7 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onCa
   const [partySize, setPartySize] = useState('');
 
   // Update input values when serviceEntry changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (serviceEntry) {
       setTableName(serviceEntry.tableName);
       setPartySize(serviceEntry.partySize.toString());
@@ -354,7 +369,8 @@ export default function TableView({
         onUpdateSection(editModal.section.id, { customers_served: newCount });
       }
 
-      console.log(`Updated section ${editModal.section.name} customer count to ${newCount}`);
+      const difference = newCount - editModal.section.customers_served;
+      console.log(`Updated section ${editModal.section.name} customer count: ${editModal.section.customers_served} → ${newCount} (${difference > 0 ? '+' : ''}${difference})`);
       
       // Close modal
       handleCloseModal();
