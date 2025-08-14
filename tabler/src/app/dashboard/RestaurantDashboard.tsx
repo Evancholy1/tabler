@@ -193,8 +193,34 @@ export default function RestaurantDashboard({
   // Function to mark service as completed (customers left)
   const completeService = async (tableId: string) => {
     try {
-      // Update database - mark as completed (not moved)
+      const table = tables.find(t => t.id === tableId);
+      const isUnassignedTable = table?.section_id === null;
+
+      console.log(`Completing service for ${isUnassignedTable ? 'overflow' : 'section'} table ${tableId}`);
+
+      // Update database - mark as completed
+      const updateData: any = { 
+        is_taken: false,
+        current_party_size: 0
+      };
+
+      // If it's an unassigned table, reset current_section to null
+      if (isUnassignedTable) {
+        updateData.current_section = null;
+      }
+
       const { error } = await supabase
+        .from('tables')
+        .update(updateData)
+        .eq('id', tableId);
+
+      if (error) {
+        console.error('Error completing service:', error);
+        return;
+      }
+
+      // Update service history
+      const { error: historyError } = await supabase
         .from('service_history')
         .update({ 
           is_active: false,
@@ -203,12 +229,23 @@ export default function RestaurantDashboard({
         .eq('table_id', tableId)
         .eq('is_active', true);
 
-      if (error) {
-        console.error('Error completing service:', error);
+      if (historyError) {
+        console.error('Error completing service history:', historyError);
         return;
       }
 
-      // Update local state
+      // Update local state WITHOUT calling updateTable to prevent loop
+      setTables(prevTables =>
+        prevTables.map(t =>
+          t.id === tableId ? { 
+            ...t, 
+            is_taken: false,
+            current_party_size: 0,
+            current_section: isUnassignedTable ? null : t.current_section
+          } : t
+        )
+      );
+
       setServiceHistory(prev => 
         prev.map(entry => 
           entry.tableId === tableId && entry.isActive
@@ -216,7 +253,9 @@ export default function RestaurantDashboard({
             : entry
         )
       );
-      console.log(`Completed service for table ${tableId}`);
+
+      const tableType = isUnassignedTable ? 'overflow table' : 'section table';
+      console.log(`Completed service for ${tableType} ${tableId}`);
     } catch (error) {
       console.error('Failed to complete service:', error);
     }
@@ -315,9 +354,14 @@ export default function RestaurantDashboard({
       )
     );
 
-    // If marking table as not taken, complete the active service
+    // Only complete service if explicitly marking table as not taken AND it was previously taken
+    // This prevents infinite loops
     if (updates.is_taken === false) {
-      completeService(tableId);
+      const currentTable = tables.find(t => t.id === tableId);
+      if (currentTable && currentTable.is_taken) {
+        console.log(`Table ${tableId} being marked as not taken, completing service`);
+        completeService(tableId);
+      }
     }
   };
 
@@ -337,7 +381,7 @@ export default function RestaurantDashboard({
     setPartySize(prev => Math.max(prev - 1, 1)); // Min 1 person
   };
 
-  // Table filtering function - check table.section_id (home section) not current_section
+  // Updated table filtering function
   const getFilteredTables = (filters: {
     sectionId?: string; // returns tables of the same section
     availableOnly?: boolean; // returns available tables
@@ -365,6 +409,21 @@ export default function RestaurantDashboard({
     });
   };
 
+  // Helper function to get available tables by category
+  const getAvailableTablesByCategory = () => {
+    const sectionTables = getFilteredTables({ 
+      availableOnly: true, 
+      minCapacity: partySize 
+    }).filter(table => table.section_id !== null); // Tables that belong to sections
+
+    const unassignedTables = getFilteredTables({ 
+      availableOnly: true, 
+      minCapacity: partySize 
+    }).filter(table => table.section_id === null); // Unassigned overflow tables
+
+    return { sectionTables, unassignedTables };
+  };
+
   const getOptimalSection = () => {
     const minCustomers = Math.min(...sections.map(s => s.customers_served || 0));
     const tiedSections = sections.filter(s => (s.customers_served || 0) === minCustomers); 
@@ -374,83 +433,98 @@ export default function RestaurantDashboard({
     );
   };
 
-  // Auto-assign logic prioritizes tables near entrance and to the right specific to pho cafe 
+  // Updated auto-assign logic prioritizes tables near entrance and to the right specific to pho cafe 
   const handleAutoAssign = () => {
     try {
-      const optimalSection = getOptimalSection();
+      const { sectionTables, unassignedTables } = getAvailableTablesByCategory();
       
-      // Helper function to sort tables by priority: right first (high x), then front (low y)
-      const sortTablesByPriority = (tables: Table[]) => {
-        return tables.sort((a, b) => {
-          // First priority: higher x_pos (more to the right)
-          if (a.x_pos !== b.x_pos) {
-            return b.x_pos - a.x_pos;
-          }
-          // Second priority: lower y_pos (closer to front)
-          return a.y_pos - b.y_pos;
-        });
-      };
-  
-      // Enhanced sorting that prioritizes section optimality first
-      const sortTablesBySectionThenPosition = (tables: Table[]) => {
-        return tables.sort((a, b) => {
-          // First priority: is the table in the optimal section?
-          const aInOptimal = a.section_id === optimalSection.id;
-          const bInOptimal = b.section_id === optimalSection.id;
-          
-          if (aInOptimal !== bInOptimal) {
-            return bInOptimal ? 1 : -1; // Optimal section tables come first
-          }
-          
-          // If both are in same section type (optimal or not), sort by position
-          // Higher x_pos first
-          if (a.x_pos !== b.x_pos) {
-            return b.x_pos - a.x_pos;
-          }
-          // Then lower y_pos
-          return a.y_pos - b.y_pos;
-        });
-      };
-      
-      // Try to find available tables that BELONG to the optimal section
-      const availableInSection = getFilteredTables({ 
-        sectionId: optimalSection.id, 
-        availableOnly: true, 
-        minCapacity: partySize 
-      });
-      
-      let selectedTable;
-      let assignedSection = optimalSection.id;
-  
-      if (availableInSection.length > 0) {
-        // Sort by priority and use the best positioned table in optimal section
-        const prioritizedTables = sortTablesByPriority(availableInSection);
-        selectedTable = prioritizedTables[0];
-      } else {
-        // No tables available in optimal section, find any available table
-        const allAvailable = getFilteredTables({ 
-          availableOnly: true, 
-          minCapacity: partySize 
-        });
+      // First, try to assign to section tables
+      if (sectionTables.length > 0) {
+        const optimalSection = getOptimalSection();
         
-        if (allAvailable.length === 0) {
-          showError(
-            'No Tables Available',
-            `No tables are currently available for a party of ${partySize} ${partySize === 1 ? 'person' : 'people'}.`
-          );
-          return;
+        // Helper function to sort tables by priority: right first (high x), then front (low y)
+        const sortTablesByPriority = (tables: Table[]) => {
+          return tables.sort((a, b) => {
+            // First priority: higher x_pos (more to the right)
+            if (a.x_pos !== b.x_pos) {
+              return b.x_pos - a.x_pos;
+            }
+            // Second priority: lower y_pos (closer to front)
+            return a.y_pos - b.y_pos;
+          });
+        };
+
+        // Enhanced sorting that prioritizes section optimality first
+        const sortTablesBySectionThenPosition = (tables: Table[]) => {
+          return tables.sort((a, b) => {
+            // First priority: is the table in the optimal section?
+            const aInOptimal = a.section_id === optimalSection.id;
+            const bInOptimal = b.section_id === optimalSection.id;
+            
+            if (aInOptimal !== bInOptimal) {
+              return bInOptimal ? 1 : -1; // Optimal section tables come first
+            }
+            
+            // If both are in same section type (optimal or not), sort by position
+            // Higher x_pos first
+            if (a.x_pos !== b.x_pos) {
+              return b.x_pos - a.x_pos;
+            }
+            // Then lower y_pos
+            return a.y_pos - b.y_pos;
+          });
+        };
+        
+        // Try to find available tables that BELONG to the optimal section
+        const availableInSection = sectionTables.filter(table => table.section_id === optimalSection.id);
+        
+        let selectedTable;
+        let assignedSection = optimalSection.id;
+
+        if (availableInSection.length > 0) {
+          // Sort by priority and use the best positioned table in optimal section
+          const prioritizedTables = sortTablesByPriority(availableInSection);
+          selectedTable = prioritizedTables[0];
+        } else {
+          // No tables available in optimal section, find any available section table
+          // Use section-aware sorting
+          const prioritizedTables = sortTablesBySectionThenPosition(sectionTables);
+          selectedTable = prioritizedTables[0];
+          // Keep the optimal section assignment (table will be temporarily moved)
         }
+
+        setSelectedSection(assignedSection);
+        setSelectedTable(selectedTable.id);
+        setShowAssignPopup(true);
+
+      } else if (unassignedTables.length > 0) {
+        // All section tables are full, use unassigned tables
+        const optimalSection = getOptimalSection();
         
-        // Use section-aware sorting
-        const prioritizedTables = sortTablesBySectionThenPosition(allAvailable);
-        selectedTable = prioritizedTables[0];
-        // Keep the optimal section assignment (table will be temporarily moved)
+        // Sort unassigned tables by position
+        const sortedUnassignedTables = unassignedTables.sort((a, b) => {
+          if (a.x_pos !== b.x_pos) {
+            return b.x_pos - a.x_pos;
+          }
+          return a.y_pos - b.y_pos;
+        });
+        
+        const selectedTable = sortedUnassignedTables[0];
+        
+        // Assign to optimal section (the table will temporarily take on this section)
+        setSelectedSection(optimalSection.id);
+        setSelectedTable(selectedTable.id);
+        setShowAssignPopup(true);
+
+      } else {
+        // No tables available at all
+        showError(
+          'No Tables Available',
+          `All tables are currently occupied. No tables are available for a party of ${partySize} ${partySize === 1 ? 'person' : 'people'}.`
+        );
+        return;
       }
-  
-      setSelectedSection(assignedSection);
-      setSelectedTable(selectedTable.id);
-      setShowAssignPopup(true);
-  
+
     } catch (error) {
       console.error('Error in auto-assign:', error);
       showError('Assignment Error', 'An error occurred during auto-assignment. Please try again.');
@@ -490,6 +564,16 @@ export default function RestaurantDashboard({
     }
   };
 
+  // Updated getTablesForPopup to include unassigned tables
+  const getTablesForPopup = (sectionId: string) => {
+    const sectionTables = getFilteredTables({ sectionId });
+    const otherSectionTables = getFilteredTables({ sectionId, excludeSection: true }).filter(table => table.section_id !== null);
+    const unassignedTables = getFilteredTables({}).filter(table => table.section_id === null);
+    
+    return { sectionTables, otherSectionTables, unassignedTables };
+  };
+
+  // Updated handleConfirmAssignment to handle unassigned tables
   const handleConfirmAssignment = async () => {
     try {
       const table = tables.find(t => t.id === selectedTable); 
@@ -515,47 +599,40 @@ export default function RestaurantDashboard({
         return;
       }
 
-      // Update table section if needed
-      if (table.current_section !== selectedSection) {
-        const { error: tableUpdateError } = await supabase
-          .from('tables')
-          .update({ 
-            current_section: selectedSection 
-          })
-          .eq('id', selectedTable);
+      console.log('Confirming assignment:', {
+        tableId: selectedTable,
+        tableName: table.name,
+        isUnassigned: table.section_id === null,
+        currentSection: table.current_section,
+        selectedSection: selectedSection,
+        partySize: partySize
+      });
 
-        if (tableUpdateError) {
-          console.error('Error updating table section:', tableUpdateError);
-          alert('Failed to update table section');
-          return;
-        }
+      // Update table status AND section assignment in a single transaction
+      const updateData = {
+        is_taken: true,
+        current_party_size: partySize,
+        current_section: selectedSection,
+        assigned_at: new Date().toISOString()
+      };
 
-        // Update local table state for section change
-        updateTable(selectedTable, { current_section: selectedSection });
-      }
+      console.log('Database update data:', updateData);
 
-      // Update table status - just set current party size (no accumulation)
       const { error: tableStatusError } = await supabase
-          .from('tables')
-          .update({
-            is_taken: true,
-            current_party_size: partySize, // Just the current service
-            assigned_at: new Date().toISOString()
-          })
-          .eq('id', selectedTable);
+        .from('tables')
+        .update(updateData)
+        .eq('id', selectedTable);
 
       if (tableStatusError) {
         console.error('Error updating table status:', tableStatusError);
-        alert('Failed to update table status');
+        alert('Failed to update table status: ' + tableStatusError.message);
         return;
       }
 
-      // Update local table state for status change
-      updateTable(selectedTable, {
-        is_taken: true,
-        current_party_size: partySize, // Just current service
-        assigned_at: new Date().toISOString()
-      });
+      console.log('Database update successful');
+
+      // Update local table state 
+      updateTable(selectedTable, updateData);
 
       // Create service history entry
       await addServiceHistoryEntry(selectedTable, selectedSection, partySize);
@@ -583,20 +660,15 @@ export default function RestaurantDashboard({
         )
       );
 
-      console.log(`Successfully assigned ${partySize} people to table ${selectedTable} in section ${selectedSection}`);
+      const tableType = table.section_id ? 'section table' : 'overflow table';
+      console.log(`Successfully assigned ${partySize} people to ${tableType} ${selectedTable} in section ${selectedSection}`);
       setShowAssignPopup(false);
 
     } catch (error) {
       console.error('Could not assign properly error:', error);
-      alert('an error occurred while confirming the assignment');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert('an error occurred while confirming the assignment: ' + errorMessage);
     }
-  };
-
-  // Get the dropdown menu options
-  const getTablesForPopup = (sectionId: string) => {
-    const sectionTables = getFilteredTables({ sectionId });
-    const otherTables = getFilteredTables({ sectionId, excludeSection: true });
-    return { sectionTables, otherTables };
   };
 
   return (
@@ -646,7 +718,7 @@ export default function RestaurantDashboard({
             onUpdateTable={updateTable}
             onCreateServiceHistory={addServiceHistoryEntry}
             onCompleteService={completeService}
-            onMoveService={moveService} // ADD THIS
+            onMoveService={moveService}
             onTriggerAutoAssign={handleTriggerAutoAssignFromGrid}
             onUpdateSection={updateSection}
           />
@@ -745,12 +817,23 @@ export default function RestaurantDashboard({
                     </optgroup>
                   )}
                   
-                  {/* Other tables */}
-                  {getTablesForPopup(selectedSection).otherTables.length > 0 && (
+                  {/* Other section tables */}
+                  {getTablesForPopup(selectedSection).otherSectionTables.length > 0 && (
                     <optgroup label="Other Section Tables">
-                      {getTablesForPopup(selectedSection).otherTables.map(table => (
+                      {getTablesForPopup(selectedSection).otherSectionTables.map(table => (
                         <option key={table.id} value={table.id}>
-                          {table.name || table.id} 
+                          {table.name || table.id} ({sections.find(s => s.id === table.section_id)?.name})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {/* Unassigned overflow tables */}
+                  {getTablesForPopup(selectedSection).unassignedTables.length > 0 && (
+                    <optgroup label="🚨 Overflow Tables (All sections full)">
+                      {getTablesForPopup(selectedSection).unassignedTables.map(table => (
+                        <option key={table.id} value={table.id}>
+                          {table.name || table.id} (Overflow)
                         </option>
                       ))}
                     </optgroup>
@@ -790,6 +873,12 @@ export default function RestaurantDashboard({
                   <div className="text-6xl font-bold text-black-600 mb-4">
                       {tables.find(t => t.id === selectedTable)?.name || selectedTable} 
                     </div>
+                    {/* Show if it's an overflow table */}
+                    {tables.find(t => t.id === selectedTable)?.section_id === null && (
+                      <div className="text-2xl font-bold text-orange-600 mb-2">
+                        🚨 OVERFLOW TABLE
+                      </div>
+                    )}
                     <div className="text-4xl font-bold text-green-600 mb-4">
                         {sectionDisplayName}:{currentCustomers} → {sectionDisplayName}:{currentCustomers + partySize}
                     </div>

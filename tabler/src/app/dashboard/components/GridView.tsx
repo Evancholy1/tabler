@@ -85,8 +85,14 @@ const MoveCustomersModal = ({
     setSelectedTable(tableId);
     if (!keepOriginalSection) {
       const selectedTableData = tables.find(t => t.id === tableId);
-      if (selectedTableData && selectedTableData.section_id) {
-        setSelectedSection(selectedTableData.section_id);
+      if (selectedTableData) {
+        if (selectedTableData.section_id) {
+          // Regular section table
+          setSelectedSection(selectedTableData.section_id);
+        } else {
+          // Unassigned table - need to select a section for assignment
+          setSelectedSection('');
+        }
       }
     }
   };
@@ -205,6 +211,22 @@ const MoveCustomersModal = ({
                       </optgroup>
                     );
                   })}
+
+                  {/* Unassigned overflow tables */}
+                  {(() => {
+                    const unassignedTables = getAvailableTables().filter(table => table.section_id === null);
+                    if (unassignedTables.length === 0) return null;
+                    
+                    return (
+                      <optgroup label="🚨 Overflow Tables (Unassigned)">
+                        {unassignedTables.map(table => (
+                          <option key={table.id} value={table.id}>
+                            {table.name || table.id} (Capacity: {table.capacity || 4}) - Overflow
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })()}
                 </select>
               </div>
 
@@ -220,11 +242,22 @@ const MoveCustomersModal = ({
                         <strong>Physical Table:</strong> {sourceTable.name || sourceTable.id} → {tables.find(t => t.id === selectedTable)?.name || selectedTable}
                       </div>
                       <div>
-                        <strong>Table Section:</strong> {sourceSection?.name} → {sections.find(s => s.id === tables.find(t => t.id === selectedTable)?.section_id)?.name}
+                        <strong>Table Section:</strong> {sourceSection?.name} → {
+                          (() => {
+                            const targetTable = tables.find(t => t.id === selectedTable);
+                            if (targetTable?.section_id === null) {
+                              return 'Unassigned (Overflow)';
+                            }
+                            return sections.find(s => s.id === targetTable?.section_id)?.name || 'Unknown';
+                          })()
+                        }
                       </div>
                       <div>
                         <strong>Assignment Section:</strong> {sourceSection?.name} → {sections.find(s => s.id === selectedSection)?.name}
                         {keepOriginalSection && <span className="text-yellow-600 font-medium"> (No Change)</span>}
+                        {tables.find(t => t.id === selectedTable)?.section_id === null && (
+                          <span className="text-orange-600 font-medium"> (Overflow Table)</span>
+                        )}
                       </div>
                       <div>
                         <strong>Party Size:</strong> {sourceTable.current_party_size} {sourceTable.current_party_size === 1 ? 'person' : 'people'}
@@ -292,10 +325,14 @@ export default function GridView({
   // Function to get section color (only show color if taken)
   const getSectionColor = (table: Table): string => {
     if (!table.is_taken) {
+      // Show unassigned table styling even when empty
+      if (table.section_id === null) {
+        return '#fff2e6'; // Light orange for unassigned tables
+      }
       return '#ffffff';
     }
     
-    if (table.section_id && sections) {
+    if (table.current_section && sections) {
       const section = sections.find(s => s.id === table.current_section);
       return section?.color || '#f3f4f6';
     }
@@ -337,14 +374,24 @@ export default function GridView({
       // Determine the final section assignment
       const finalSectionId = keepOriginalSection ? sourceTable.current_section : targetSectionId;
       const sourceSectionId = sourceTable.current_section;
+      const sourceIsUnassigned = sourceTable.section_id === null;
+      const targetTable = tables.find(t => t.id === targetTableId);
+      const targetIsUnassigned = targetTable?.section_id === null;
 
-      // Update source table - remove customers
+      // Update source table - remove customers and reset current_section if it's unassigned
+      const sourceUpdateData: any = { 
+        is_taken: false,
+        current_party_size: 0
+      };
+      
+      // If source is unassigned table, reset current_section to null
+      if (sourceIsUnassigned) {
+        sourceUpdateData.current_section = null;
+      }
+
       const { error: sourceError } = await supabase
         .from('tables')
-        .update({ 
-          is_taken: false,
-          current_party_size: 0
-        })
+        .update(sourceUpdateData)
         .eq('id', sourceTable.id);
 
       if (sourceError) {
@@ -414,10 +461,16 @@ export default function GridView({
       }
 
       // Update local table state
-      onUpdateTable(sourceTable.id, {
+      const sourceLocalUpdate: any = {
         is_taken: false,
         current_party_size: 0
-      });
+      };
+      
+      if (sourceIsUnassigned) {
+        sourceLocalUpdate.current_section = null;
+      }
+
+      onUpdateTable(sourceTable.id, sourceLocalUpdate);
 
       onUpdateTable(targetTableId, {
         is_taken: true,
@@ -426,11 +479,13 @@ export default function GridView({
         assigned_at: new Date().toISOString()
       });
 
+      const sourceType = sourceIsUnassigned ? 'overflow table' : 'section table';
+      const targetType = targetIsUnassigned ? 'overflow table' : 'section table';
       const actionDescription = keepOriginalSection 
         ? `moved to different physical table but kept in same section`
         : `moved to different table and section`;
 
-      console.log(`Successfully ${actionDescription}: ${sourceTable.current_party_size} customers from ${sourceTable.id} to ${targetTableId} (section: ${finalSectionId})`);
+      console.log(`Successfully ${actionDescription}: ${sourceTable.current_party_size} customers from ${sourceType} ${sourceTable.id} to ${targetType} ${targetTableId} (section: ${finalSectionId})`);
 
     } catch (error) {
       console.error('Failed to move customers:', error);
@@ -493,6 +548,7 @@ export default function GridView({
             border-2 flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all
             ${isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-300'}
             ${table.is_taken ? 'shadow-md' : ''}
+            ${table.section_id === null ? 'ring-2 ring-orange-400 ring-opacity-50' : ''} // Visual indicator for unassigned tables
             hover:shadow-md
           `}
           style={{ 
