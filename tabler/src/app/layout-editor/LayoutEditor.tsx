@@ -3,7 +3,6 @@
 
 import { useState } from 'react';
 import { Layout, Section, Table, LayoutEditorProps } from './types/layout';
-import { SupabaseAuthClient } from '@supabase/supabase-js/dist/module/lib/SupabaseAuthClient';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react';
@@ -98,24 +97,24 @@ export default function LayoutEditor({
     // Start creation mode
     setNewTablePosition({ x, y });
     setNewTableName('');
-    setNewTableSection('');
+    setNewTableSection(''); // This can now be empty for unassigned tables
     setNewTableCapacity(4); // resets capacity
     setIsCreatingTable(true);
     setSelectedTable(null); // Clear any selected table
   };
 
   const confirmTableCreation = () => {
-    if (!newTablePosition || !newTableName.trim() || !newTableSection) {
-      alert('Please provide a table name and select a section');
+    if (!newTablePosition || !newTableName.trim()) {
+      alert('Please provide a table name');
       return;
     }
   
-    // Create new table object
+    // Create new table object - section_id can be null for unassigned tables
     const newTable: Table = {
       id: `temp-${Date.now()}`,
       layout_id: layout.id,
-      section_id: newTableSection,
-      current_section: newTableSection,
+      section_id: newTableSection || null, // Allow null for unassigned tables
+      current_section: newTableSection || null, // Allow null for unassigned tables
       x_pos: newTablePosition.x,
       y_pos: newTablePosition.y,
       name: newTableName.trim(),
@@ -188,6 +187,7 @@ export default function LayoutEditor({
             w-16 h-16 border-2 flex items-center justify-center cursor-pointer rounded-lg transition-all
             ${isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-300'}
             hover:shadow-md
+            ${!table.section_id ? 'ring-2 ring-orange-400 ring-opacity-50' : ''} // Visual indicator for unassigned tables
           `}
           style={{ backgroundColor }}
           onClick={() => {
@@ -207,7 +207,10 @@ export default function LayoutEditor({
       return (
         <div
           key={`${x}-${y}`}
-          className="w-16 h-16 border-2 border-dashed border-blue-500 flex items-center justify-center rounded-lg transition-all"
+          className={`
+            w-16 h-16 border-2 border-dashed border-blue-500 flex items-center justify-center rounded-lg transition-all
+            ${!newTableSection ? 'ring-2 ring-orange-400 ring-opacity-50' : ''}
+          `}
           style={{ backgroundColor: previewColor, opacity: 0.7 }}
         >
           <span className="text-xs font-medium text-center px-1">
@@ -230,19 +233,26 @@ export default function LayoutEditor({
   };
 
 
-  //function to assign a table to a section 
-
+  //function to assign a table to a section (now supports null for unassigned)
   const assignTableToSection = (tableId: string, sectionId: string | null) => {
     setTables(prevTables => 
       prevTables.map(table =>
         table.id === tableId
-        ? {...table, current_section: sectionId}
-        :table
+        ? {
+            ...table, 
+            section_id: sectionId, // Update both section_id and current_section
+            current_section: sectionId
+          }
+        : table
       )
     );
 
     if (selectedTable?.id === tableId) {
-      setSelectedTable(prev => prev ? {...prev, current_section: sectionId} : null);
+      setSelectedTable(prev => prev ? {
+        ...prev, 
+        section_id: sectionId,
+        current_section: sectionId
+      } : null);
     }
   };
 
@@ -260,11 +270,8 @@ export default function LayoutEditor({
     }
   };
 
- 
-
-
   const getSectionColor = (sectionId: string | null) : string => {
-    if (!sectionId) return '#f3f4f6'; //unassigned
+    if (!sectionId) return '#fff2e6'; // Light orange for unassigned tables
 
     const section = sections.find(s=> s.id === sectionId);
     return section?.color || '#f3f4f6'; 
@@ -292,8 +299,8 @@ export default function LayoutEditor({
     if (unsavedTables.length > 0) {
       const tablesToSave = unsavedTables.map(table => ({
         layout_id: table.layout_id,
-        section_id: table.section_id,
-        current_section: table.current_section,
+        section_id: table.section_id, // Can be null for unassigned tables
+        current_section: table.current_section, // Can be null for unassigned tables
         x_pos: table.x_pos,
         y_pos: table.y_pos,
         name: table.name,
@@ -315,8 +322,8 @@ export default function LayoutEditor({
       const { error } = await supabase
         .from('tables')
         .update({
-          section_id: table.section_id,
-          current_section: table.current_section,
+          section_id: table.section_id, // Can be null
+          current_section: table.current_section, // Can be null
           name: table.name,
           capacity: table.capacity
         })
@@ -358,6 +365,9 @@ const cancelDelete = () => {
   setTableToDelete(null);
 };
 
+// Helper functions to categorize tables
+const getAssignedTables = () => tables.filter(table => table.section_id !== null);
+const getUnassignedTables = () => tables.filter(table => table.section_id === null);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 rounded-2xl border">
@@ -384,7 +394,6 @@ const cancelDelete = () => {
           </div>
 
           {/* Sidebar */}
-          {/* Sidebar */}
           <div className="w-64">
             <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="text-lg font-semibold mb-4">Sections</h3>
@@ -398,6 +407,15 @@ const cancelDelete = () => {
                   <span>{section.name}</span>
                 </div>
               ))}
+
+              {/* Unassigned Tables Indicator */}
+              <div className="flex items-center gap-2 mb-2">
+                <div 
+                  className="w-4 h-4 rounded border-2 border-orange-400"
+                  style={{ backgroundColor: '#fff2e6' }}
+                />
+                <span className="text-sm text-gray-600">Unassigned (Overflow)</span>
+              </div>
 
               {/* Table Creation Panel */}
               {isCreatingTable && newTablePosition && (
@@ -425,17 +443,19 @@ const cancelDelete = () => {
                       onChange={(e) => setNewTableSection(e.target.value)}
                       className="w-full px-2 py-1 border rounded text-sm"
                     >
-                      <option value="">Select section</option>
+                      <option value="">Unassigned (Overflow Table)</option>
                       {sections.map(section => (
                         <option key={section.id} value={section.id}>
                           {section.name}
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Unassigned tables are used when all section tables are full
+                    </p>
                   </div>
                   
                 
-                  {/* Capacity Info */}
                   {/* Capacity Info */}
                   <div className="mb-4">
                     <label className="block text-sm font-medium mb-1">Capacity</label>
@@ -475,7 +495,7 @@ const cancelDelete = () => {
                   <div className="flex gap-2 mb-4">
                     <button
                       onClick={confirmTableCreation}
-                      disabled={!newTableName.trim() || !newTableSection}
+                      disabled={!newTableName.trim()}
                       className="flex-1 bg-blue-500 text-white py-2 px-2 rounded-lg hover:bg-blue-700 disabled:opacity-100 disabled:cursor-not-allowed font-medium transition-colors text-sm"
                     >
                       Create
@@ -506,11 +526,13 @@ const cancelDelete = () => {
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">Section</label>
                   <div className="px-2 py-1 border rounded text-sm bg-gray-50">
-                    {sections.find(s => s.id === selectedTable.current_section)?.name || 'Unassigned'}
+                    {selectedTable.section_id 
+                      ? sections.find(s => s.id === selectedTable.section_id)?.name 
+                      : 'Unassigned (Overflow Table)'
+                    }
                   </div>
                 </div>
 
-                {/* ONLY THIS CAPACITY FIELD - REMOVE THE OTHER TWO */}
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">Capacity</label>
                   <div className="px-2 py-1 border rounded text-sm bg-gray-50">
@@ -550,18 +572,22 @@ const cancelDelete = () => {
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-1">Section</label>
                   <select
-                    value={selectedTable.current_section || ''}
+                    value={selectedTable.section_id || ''}
                     onChange={(e) => assignTableToSection(selectedTable.id, e.target.value || null)}
                     className="w-full px-2 py-1 border rounded text-sm"
                   >
-                    <option value="">Unassigned</option>
+                    <option value="">Unassigned (Overflow Table)</option>
                     {sections.map(section => (
                       <option key={section.id} value={section.id}>
                         {section.name}
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Unassigned tables are used when all section tables are full
+                  </p>
                 </div>
+                
                 {/* Capacity editing */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-1">Capacity</label>
@@ -653,6 +679,25 @@ const cancelDelete = () => {
                 </div>
               </div>
             )}
+
+            {/* Table Summary */}
+            <div className="mt-6 pt-4 border-t">
+              <h4 className="font-semibold mb-3 text-sm">Table Summary</h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span>Section Tables:</span>
+                  <span className="font-medium">{getAssignedTables().length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Overflow Tables:</span>
+                  <span className="font-medium text-orange-600">{getUnassignedTables().length}</span>
+                </div>
+                <div className="flex justify-between font-medium border-t pt-2">
+                  <span>Total Tables:</span>
+                  <span>{tables.length}</span>
+                </div>
+              </div>
+            </div>
 
               <div className="mt-6 pt-4 border-t">
                 <button

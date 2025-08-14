@@ -477,7 +477,7 @@ export default function SettingsPage() {
           </div>
           <button 
             onClick={handleClose}
-            className="text-2xl text-gray-400 hover:text-gray-600"
+            className="text-4xl text-gray-400 hover:text-gray-600"
           >
             ×
           </button>
