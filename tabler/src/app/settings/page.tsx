@@ -282,6 +282,18 @@ export default function SettingsPage() {
         return;
       }
 
+      // Also update tables that reference this section to keep current_section in sync
+      const { error: tablesError } = await supabase
+        .from('tables')
+        .update({ current_section: sectionId })
+        .eq('section_id', sectionId);
+
+      if (tablesError) {
+        console.error('Error updating table current_section:', tablesError);
+        // Don't fail the operation, just log the error
+        console.warn('Tables current_section may be out of sync');
+      }
+
       // Update local state
       setSections(prevSections =>
         prevSections.map(section =>
@@ -476,7 +488,7 @@ export default function SettingsPage() {
         {/* User Info */}
         <div className="space-y-6 text-sm">
           <SettingRow label="User ID" value={userData.id} />
-          <SettingRow label="Email account" value={userData.email} />
+          
           
         </div>
 
