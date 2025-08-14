@@ -238,7 +238,7 @@ export default function SettingsPage() {
       
     } catch (error) {
       console.error('Unexpected error resetting layout:', error);
-      //alert(`Unexpected error: ${error.message || 'Unknown error'}`);
+     // alert(`Unexpected error: ${error.message || 'Unknown error'}`);
     } finally {
       setIsResetting(false);
     }
@@ -280,6 +280,18 @@ export default function SettingsPage() {
         console.error('Error updating section name:', error);
         alert('Failed to update section name');
         return;
+      }
+
+      // Also update tables that reference this section to keep current_section in sync
+      const { error: tablesError } = await supabase
+        .from('tables')
+        .update({ current_section: sectionId })
+        .eq('section_id', sectionId);
+
+      if (tablesError) {
+        console.error('Error updating table current_section:', tablesError);
+        // Don't fail the operation, just log the error
+        console.warn('Tables current_section may be out of sync');
       }
 
       // Update local state
@@ -455,8 +467,8 @@ export default function SettingsPage() {
   if (!userData) return <div className="p-6 text-red-500">User not found.</div>;
 
   return (
-    <div className="p-6 min-h-screen bg-gray-100 flex justify-center">
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow-md p-6 space-y-6">
+    <div className="min-h-screen bg-gray-100 flex justify-center p-2 sm:p-4 md:p-6">
+      <div className="w-full max-w-none sm:max-w-2xl md:max-w-4xl lg:max-w-6xl bg-white rounded-xl shadow-md p-4 sm:p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
@@ -476,17 +488,15 @@ export default function SettingsPage() {
         {/* User Info */}
         <div className="space-y-6 text-sm">
           <SettingRow label="User ID" value={userData.id} />
-          <SettingRow label="Email account" value={userData.email} />
-          
         </div>
 
         {/* Section List */}
         <div>
-          <h2 className="text-md font-medium mt-4 mb-2">Sections</h2>
+          <h2 className="text-lg font-medium mt-4 mb-4">Sections</h2>
           {sections.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {sections.map(section => (
-                <div key={section.id} className="flex items-center space-x-3 text-sm text-gray-700 group">
+                <div key={section.id} className="flex items-center space-x-4 text-base text-gray-700 group p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                   {/* Color Picker */}
                   <div className="flex-shrink-0">
                     <ColorPicker
@@ -498,12 +508,12 @@ export default function SettingsPage() {
                   
                   {editingSectionId === section.id ? (
                     // Edit mode
-                    <div className="flex items-center space-x-2 flex-1">
+                    <div className="flex items-center space-x-3 flex-1">
                       <input
                         type="text"
                         value={editingSectionName}
                         onChange={(e) => setEditingSectionName(e.target.value)}
-                        className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') saveSectionName(section.id);
@@ -514,14 +524,14 @@ export default function SettingsPage() {
                       <button
                         onClick={() => saveSectionName(section.id)}
                         disabled={savingSectionId === section.id}
-                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[80px]"
                       >
                         {savingSectionId === section.id ? 'Saving...' : 'Save'}
                       </button>
                       <button
                         onClick={cancelEditingSectionName}
                         disabled={savingSectionId === section.id}
-                        className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50"
+                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors min-w-[80px]"
                       >
                         Cancel
                       </button>
@@ -529,14 +539,14 @@ export default function SettingsPage() {
                   ) : (
                     // View mode
                     <div className="flex items-center justify-between flex-1">
-                      <span className="flex-1">{section.name}</span>
-                      <div className="flex items-center space-x-2">
+                      <span className="flex-1 text-lg font-medium">{section.name}</span>
+                      <div className="flex items-center space-x-3">
                         {updatingColorId === section.id && (
-                          <span className="text-xs text-gray-500">Updating...</span>
+                          <span className="text-sm text-gray-500 font-medium">Updating...</span>
                         )}
                         <button
                           onClick={() => startEditingSectionName(section)}
-                          className="opacity-0 group-hover:opacity-100 text-xs text-blue-600 hover:text-blue-800 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 text-sm text-blue-600 hover:text-blue-800 transition-opacity bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md"
                         >
                           Edit
                         </button>
@@ -547,13 +557,13 @@ export default function SettingsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No sections found.</p>
+            <p className="text-base text-gray-500 text-center py-8">No sections found.</p>
           )}
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-between pt-4">
-          <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setShowResetConfirm(true)}
               className="text-red-600 border border-red-600 px-4 py-2 rounded hover:bg-red-50 transition"
