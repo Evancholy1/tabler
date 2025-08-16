@@ -15,6 +15,7 @@ type Section = {
   id: string;
   name: string;
   color: string;
+  priority_rank: number;
 };
 
 export default function SettingsPage() {
@@ -58,11 +59,12 @@ export default function SettingsPage() {
       const layoutIds = layouts?.map(l => l.id) || [];
 
       if (layoutIds.length > 0) {
-        // Get section names and colors
+        // Get section names, colors, and priority_rank - ORDER BY priority_rank
         const { data: sectionRows } = await supabase
           .from('sections')
-          .select('id, name, color')
-          .in('layout_id', layoutIds);
+          .select('id, name, color, priority_rank')
+          .in('layout_id', layoutIds)
+          .order('priority_rank', { ascending: true }); // This is the key fix!
 
         setSections(sectionRows || []);
       }
@@ -494,65 +496,75 @@ export default function SettingsPage() {
         <div>
           <h2 className="text-lg font-medium mt-4 mb-4">Sections</h2>
           {sections.length > 0 ? (
-            <div className="space-y-4">
-              {sections.map(section => (
-                <div key={section.id} className="flex items-center space-x-4 text-base text-gray-700 group p-3 border rounded-lg hover:bg-gray-50 transition-colors">
-                  {/* Color Picker */}
-                  <div className="flex-shrink-0">
-                    <ColorPicker
-                      color={section.color}
-                      onChange={(newColor) => updateSectionColor(section.id, newColor)}
-                      sectionName={section.name}
-                    />
+            <div className="space-y-6">
+              {sections.map((section, index) => (
+                <div key={section.id}>
+                  {/* Section Number Label */}
+                  <div className="mb-3">
+                    <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-md">
+                      Section {section.priority_rank}
+                    </span>
                   </div>
                   
-                  {editingSectionId === section.id ? (
-                    // Edit mode
-                    <div className="flex items-center space-x-3 flex-1">
-                      <input
-                        type="text"
-                        value={editingSectionName}
-                        onChange={(e) => setEditingSectionName(e.target.value)}
-                        className="flex-1 px-3 py-2 text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveSectionName(section.id);
-                          if (e.key === 'Escape') cancelEditingSectionName();
-                        }}
-                        disabled={savingSectionId === section.id}
+                  {/* Section Content */}
+                  <div className="flex items-center space-x-4 text-base text-gray-700 group p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                    {/* Color Picker */}
+                    <div className="flex-shrink-0">
+                      <ColorPicker
+                        color={section.color}
+                        onChange={(newColor) => updateSectionColor(section.id, newColor)}
+                        sectionName={section.name}
                       />
-                      <button
-                        onClick={() => saveSectionName(section.id)}
-                        disabled={savingSectionId === section.id}
-                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[80px]"
-                      >
-                        {savingSectionId === section.id ? 'Saving...' : 'Save'}
-                      </button>
-                      <button
-                        onClick={cancelEditingSectionName}
-                        disabled={savingSectionId === section.id}
-                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors min-w-[80px]"
-                      >
-                        Cancel
-                      </button>
                     </div>
-                  ) : (
-                    // View mode
-                    <div className="flex items-center justify-between flex-1">
-                      <span className="flex-1 text-lg font-medium">{section.name}</span>
-                      <div className="flex items-center space-x-3">
-                        {updatingColorId === section.id && (
-                          <span className="text-sm text-gray-500 font-medium">Updating...</span>
-                        )}
+                    
+                    {editingSectionId === section.id ? (
+                      // Edit mode
+                      <div className="flex items-center space-x-3 flex-1">
+                        <input
+                          type="text"
+                          value={editingSectionName}
+                          onChange={(e) => setEditingSectionName(e.target.value)}
+                          className="flex-1 px-3 py-2 text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveSectionName(section.id);
+                            if (e.key === 'Escape') cancelEditingSectionName();
+                          }}
+                          disabled={savingSectionId === section.id}
+                        />
                         <button
-                          onClick={() => startEditingSectionName(section)}
-                          className="opacity-0 group-hover:opacity-100 text-sm text-blue-600 hover:text-blue-800 transition-opacity bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md"
+                          onClick={() => saveSectionName(section.id)}
+                          disabled={savingSectionId === section.id}
+                          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[80px]"
                         >
-                          Edit
+                          {savingSectionId === section.id ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={cancelEditingSectionName}
+                          disabled={savingSectionId === section.id}
+                          className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors min-w-[80px]"
+                        >
+                          Cancel
                         </button>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      // View mode
+                      <div className="flex items-center justify-between flex-1">
+                        <span className="flex-1 text-lg font-medium">{section.name}</span>
+                        <div className="flex items-center space-x-3">
+                          {updatingColorId === section.id && (
+                            <span className="text-sm text-gray-500 font-medium">Updating...</span>
+                          )}
+                          <button
+                            onClick={() => startEditingSectionName(section)}
+                            className="opacity-0 group-hover:opacity-100 text-sm text-blue-600 hover:text-blue-800 transition-opacity bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
