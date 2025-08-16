@@ -102,9 +102,11 @@ export default function RestaurantDashboard({
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedTable, setSelectedTable] = useState('');
 
+  const [isAssigning, setIsAssigning] = useState(false);
   const selectedSectionData = sections.find(s => s.id === selectedSection);
   const sectionDisplayName = selectedSectionData?.name || selectedSection;
   const currentCustomers = selectedSectionData?.customers_served || 0;
+
 
   // Load service history on component mount
   useEffect(() => {
@@ -575,7 +577,13 @@ export default function RestaurantDashboard({
 
   // Updated handleConfirmAssignment to handle unassigned tables
   const handleConfirmAssignment = async () => {
+    if (isAssigning) {
+      console.log('Assignment already in progress, ignoring click');
+      return; //if button is disabled confirm assignment does nothing 
+    }
+  
     try {
+      setIsAssigning(true); // Disable the button immediately
       const table = tables.find(t => t.id === selectedTable); 
       if (!table) {
         alert('Selected table not found');
@@ -669,6 +677,9 @@ export default function RestaurantDashboard({
       console.error('Could not assign properly error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert('an error occurred while confirming the assignment: ' + errorMessage);
+    } finally {
+      // Always re-enable the button, even if there was an error
+      setIsAssigning(false);
     }
   };
 
