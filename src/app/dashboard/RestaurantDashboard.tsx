@@ -670,6 +670,7 @@ export default function RestaurantDashboard({
 
       const tableType = table.section_id ? 'section table' : 'overflow table';
       console.log(`Successfully assigned ${partySize} people to ${tableType} ${selectedTable} in section ${selectedSection}`);
+      setViewMode('list');
       setShowAssignPopup(false);
       setPartySize(1); // Min 1 person
 
