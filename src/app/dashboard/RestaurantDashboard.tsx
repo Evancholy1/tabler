@@ -559,11 +559,6 @@ export default function RestaurantDashboard({
 
   const handleSectionChange = (newSectionId: string) => {
     setSelectedSection(newSectionId); 
-
-    const sectionTables = getFilteredTables({sectionId: newSectionId});
-    if (sectionTables.length > 0 ) {
-      setSelectedTable(sectionTables[0].id);
-    }
   };
 
   // Updated getTablesForPopup to include unassigned tables

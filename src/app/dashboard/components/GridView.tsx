@@ -1,9 +1,11 @@
 // src/app/app/components/GridView.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
 import { supabase } from '@/lib/supabaseClient';
 import { Layout, Section, Table, ViewProps } from '../types/dashboard';
+
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -39,7 +41,7 @@ const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel, onMove }: C
             onClick={onMove}
             className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
           >
-            Move Customers
+            Move/Change Section
           </button>
           <button
             onClick={onConfirm}
@@ -71,11 +73,28 @@ const MoveCustomersModal = ({
   const [selectedSection, setSelectedSection] = useState('');
   const [keepOriginalSection, setKeepOriginalSection] = useState(false);
 
+  const hasChanges = () => {
+    if (!sourceTable) return false;
+    
+    const tableChanged = selectedTable !== sourceTable.id;
+    const sectionChanged = !keepOriginalSection && selectedSection !== sourceTable.current_section;
+    const keepOriginalChanged = keepOriginalSection && selectedSection !== sourceTable.current_section;
+    
+    return tableChanged || sectionChanged || keepOriginalChanged;
+  };
+
+  useEffect(() => {
+    if (isOpen && sourceTable) {
+      setSelectedTable(sourceTable.id);
+      setSelectedSection(sourceTable.current_section || '');
+      setKeepOriginalSection(false);
+    }
+  }, [isOpen, sourceTable]);
+
   // Get available tables (not taken and not the source table)
   const getAvailableTables = () => {
     return tables.filter(table => 
-      !table.is_taken && 
-      table.id !== sourceTable?.id &&
+      (!table.is_taken || table.id === sourceTable?.id) && // Include current table
       (table.capacity || 4) >= (sourceTable?.current_party_size || 1)
     );
   };
@@ -101,7 +120,7 @@ const MoveCustomersModal = ({
   const handleSectionChange = (sectionId: string) => {
     setSelectedSection(sectionId);
     // Clear table selection when section changes
-    setSelectedTable('');
+    // setSelectedTable('');
   };
 
   // Handle keep original section toggle
@@ -156,7 +175,7 @@ const MoveCustomersModal = ({
                   </span>
                 </label>
                 <p className="text-xs text-yellow-700 mt-1 ml-7">
-                  Check this to move to a different physical table but keep the same section assignment
+                  Move to different table but keep section
                 </p>
               </div>
 
@@ -235,25 +254,14 @@ const MoveCustomersModal = ({
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="text-center">
                     <div className="text-lg font-bold text-blue-600 mb-2">
-                      Move Summary
+                      Change Summary
                     </div>
                     <div className="text-sm text-gray-700 space-y-1">
                       <div>
-                        <strong>Physical Table:</strong> {sourceTable.name || sourceTable.id} → {tables.find(t => t.id === selectedTable)?.name || selectedTable}
+                        <strong>Table Change</strong> {sourceTable.name || sourceTable.id} → {tables.find(t => t.id === selectedTable)?.name || selectedTable}
                       </div>
                       <div>
-                        <strong>Table Section:</strong> {sourceSection?.name} → {
-                          (() => {
-                            const targetTable = tables.find(t => t.id === selectedTable);
-                            if (targetTable?.section_id === null) {
-                              return 'Unassigned (Overflow)';
-                            }
-                            return sections.find(s => s.id === targetTable?.section_id)?.name || 'Unknown';
-                          })()
-                        }
-                      </div>
-                      <div>
-                        <strong>Assignment Section:</strong> {sourceSection?.name} → {sections.find(s => s.id === selectedSection)?.name}
+                        <strong>Section Change</strong> {sourceSection?.name} → {sections.find(s => s.id === selectedSection)?.name}
                         {keepOriginalSection && <span className="text-yellow-600 font-medium"> (No Change)</span>}
                         {tables.find(t => t.id === selectedTable)?.section_id === null && (
                           <span className="text-orange-600 font-medium"> (Overflow Table)</span>
@@ -280,10 +288,10 @@ const MoveCustomersModal = ({
           </button>
           <button
             onClick={() => onConfirm(selectedTable, selectedSection, keepOriginalSection)}
-            disabled={!selectedTable || !selectedSection || availableTables.length === 0}
+            disabled={!selectedTable || !selectedSection || availableTables.length === 0 || !hasChanges()}
             className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            Move Customers
+            Confirm 
           </button>
         </div>
       </div>
@@ -377,6 +385,74 @@ export default function GridView({
       const sourceIsUnassigned = sourceTable.section_id === null;
       const targetTable = tables.find(t => t.id === targetTableId);
       const targetIsUnassigned = targetTable?.section_id === null;
+      //to change secton only
+      const isSameTable = sourceTable.id === targetTableId;
+      const isSectionChange = sourceSectionId !== finalSectionId;
+
+
+      //when changing only sectionc
+      if (isSameTable && isSectionChange) {
+        const { error } = await supabase
+          .from('tables')
+          .update({
+            current_section: finalSectionId
+          })
+          .eq('id', sourceTable.id);
+      
+        if (error) {
+          console.error('Error updating table section:', error);
+          return;
+        }
+      
+        // Mark old service as moved and create new service entry
+        if (onMoveService) {
+          await onMoveService(sourceTable.id);
+        }
+        if (onCreateServiceHistory && finalSectionId) {
+          await onCreateServiceHistory(sourceTable.id, finalSectionId, sourceTable.current_party_size);
+        }
+
+        if (sourceSectionId && finalSectionId && onUpdateSection) {
+          // Subtract from source section
+          const sourceSection = sections.find(s => s.id === sourceSectionId);
+          if (sourceSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+              })
+              .eq('id', sourceSectionId);
+      
+            onUpdateSection(sourceSectionId, {
+              customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+            });
+          }
+      
+          // Add to target section
+          const targetSection = sections.find(s => s.id === finalSectionId);
+          if (targetSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+              })
+              .eq('id', finalSectionId);
+      
+            onUpdateSection(finalSectionId, {
+              customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+            });
+          }
+        }
+      
+        // Update section counts and local state...
+        // (same section count logic as before)
+        
+        onUpdateTable(sourceTable.id, { current_section: finalSectionId });
+        console.log(`Changed section assignment for table ${sourceTable.id} from ${sourceSectionId} to ${finalSectionId}`);
+        return;
+      }
+      
+          
 
       // Update source table - remove customers and reset current_section if it's unassigned
       const sourceUpdateData: any = { 
@@ -635,6 +711,10 @@ export default function GridView({
         tables={tables}
         onConfirm={handleConfirmMove}
         onCancel={handleCancelAction}
+        
+
+        
+
       />
     </>
   );
