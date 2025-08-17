@@ -319,6 +319,16 @@ export default function TableView({
     serviceEntry: ServiceHistoryEntry | null;
   }>({ isOpen: false, serviceEntry: null });
 
+  // Auto-scroll to bottom when service history updates
+  useEffect(() => {
+    sections.forEach(section => {
+      const sectionElement = document.getElementById(`section-${section.id}-scroll`);
+      if (sectionElement) {
+        sectionElement.scrollTop = sectionElement.scrollHeight;
+      }
+    });
+  }, [serviceHistory, sections]);
+
   // Get optimal section function (same logic as in RestaurantDashboard)
   const getOptimalSection = () => {
     const minCustomers = Math.min(...sections.map(s => s.customers_served || 0));
@@ -469,7 +479,10 @@ export default function TableView({
               return (
                 <div key={section.id} className="border-r-2 border-black last:border-r-0 flex flex-col min-h-0">
                   {/* Scrollable container for service instances */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                  <div 
+                    id={`section-${section.id}-scroll`}
+                    className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0"
+                  >
                     {sectionServices.length === 0 ? (
                       <div className="text-center text-gray-400 text-2xl py-12">
                         No services yet
