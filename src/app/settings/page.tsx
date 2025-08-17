@@ -620,7 +620,7 @@ export default function SettingsPage() {
 
         {/* Reset Confirmation Modal */}
         {showResetConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
               <h3 className="text-lg font-semibold mb-3 text-gray-900">Reset Layout</h3>
               <p className="text-gray-600 mb-6">
@@ -657,7 +657,7 @@ export default function SettingsPage() {
 
         {/* Customer History Reset Confirmation Modal */}
         {showHistoryResetConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
               <h3 className="text-lg font-semibold mb-3 text-gray-900">Reset Customer History</h3>
               <p className="text-gray-600 mb-6">

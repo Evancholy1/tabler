@@ -797,7 +797,7 @@ export default function RestaurantDashboard({
 
       {/* Assignment Popup */}
       {showAssignPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
           <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full mx-8 overflow-hidden">
             {/* Content */}
             <div className="p-8 space-y-8">

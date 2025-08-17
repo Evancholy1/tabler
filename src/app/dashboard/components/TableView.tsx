@@ -67,7 +67,7 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
   const difference = currentValue - originalValue;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b" style={{ backgroundColor: `${section.color}20` }}>
@@ -194,7 +194,7 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onCa
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b" style={{ backgroundColor: `${section?.color}20` }}>
