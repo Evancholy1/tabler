@@ -145,6 +145,17 @@ export default function RestaurantDashboard({
     }
   };
 
+  useEffect(() => {
+  if (viewMode === 'list') {
+    setTimeout(() => {
+      window.scrollTo({
+        top: window.innerHeight * 0.15,
+        behavior: 'smooth'
+      });
+    }, 100);
+  }
+}, [viewMode]);
+
   // Function to create new service history entry (individual instances)
   const addServiceHistoryEntry = async (tableId: string, sectionId: string, partySize: number) => {
     const table = tables.find(t => t.id === tableId);
@@ -716,7 +727,7 @@ export default function RestaurantDashboard({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex items-center justify-center p-4 pb-24">
+      <div className="main-content-area flex-1 flex items-center justify-center p-4 pb-24">
         {viewMode === 'grid' ? (
           <GridView 
             layout={layout}
