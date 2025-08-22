@@ -367,15 +367,8 @@ export default function RestaurantDashboard({
       )
     );
 
-    // Only complete service if explicitly marking table as not taken AND it was previously taken
-    // This prevents infinite loops
-    if (updates.is_taken === false) {
-      const currentTable = tables.find(t => t.id === tableId);
-      if (currentTable && currentTable.is_taken) {
-        console.log(`Table ${tableId} being marked as not taken, completing service`);
-        completeService(tableId);
-      }
-    }
+
+    
   };
 
   const updateSection = (sectionId: string, updates: Partial<Section>) => {
@@ -583,112 +576,112 @@ export default function RestaurantDashboard({
 
   // Updated handleConfirmAssignment to handle unassigned tables
   const handleConfirmAssignment = async () => {
-    if (isAssigning) {
-      console.log('Assignment already in progress, ignoring click');
-      return; //if button is disabled confirm assignment does nothing 
+  if (isAssigning) {
+    console.log('Assignment already in progress, ignoring click');
+    return;
+  }
+
+  try {
+    setIsAssigning(true);
+    const table = tables.find(t => t.id === selectedTable); 
+    if (!table) {
+      alert('Selected table not found');
+      return;
     }
-  
-    try {
-      setIsAssigning(true); // Disable the button immediately
-      const table = tables.find(t => t.id === selectedTable); 
-      if (!table) {
-        alert('Selected table not found');
-        return;
-      }
 
-      const tableCapacity = table.capacity || 4;
-      if(partySize > tableCapacity) {
-        showError(
-          'Table Capacity Exceeded',
-          `This table can only seat ${tableCapacity} ${tableCapacity === 1 ? 'person' : 'people'}, but you're trying to assign ${partySize} ${partySize === 1 ? 'person' : 'people'}. Please select a larger table or reduce the party size.`
-        );
-        return; 
-      }
-
-      if (table.is_taken) {
-        showError(
-          'Table Already Occupied',
-          `This table is currently occupied by ${table.current_party_size} ${table.current_party_size === 1 ? 'person' : 'people'}. Please select an available table or wait for this table to become free.`
-        );
-        return;
-      }
-
-      console.log('Confirming assignment:', {
-        tableId: selectedTable,
-        tableName: table.name,
-        isUnassigned: table.section_id === null,
-        currentSection: table.current_section,
-        selectedSection: selectedSection,
-        partySize: partySize
-      });
-
-      // Update table status AND section assignment in a single transaction
-      const updateData = {
-        is_taken: true,
-        current_party_size: partySize,
-        current_section: selectedSection,
-        assigned_at: new Date().toISOString()
-      };
-
-      console.log('Database update data:', updateData);
-
-      const { error: tableStatusError } = await supabase
-        .from('tables')
-        .update(updateData)
-        .eq('id', selectedTable);
-
-      if (tableStatusError) {
-        console.error('Error updating table status:', tableStatusError);
-        alert('Failed to update table status: ' + tableStatusError.message);
-        return;
-      }
-
-      console.log('Database update successful');
-
-      // Update local table state 
-      updateTable(selectedTable, updateData);
-
-      // Create service history entry
-      await addServiceHistoryEntry(selectedTable, selectedSection, partySize);
-
-      // Update section customer count
-      const { error: sectionUpdateError } = await supabase
-        .from('sections')
-        .update({
-          customers_served: (sections.find(s => s.id === selectedSection)?.customers_served || 0) + partySize
-        })
-        .eq('id', selectedSection);
-
-      if (sectionUpdateError) {
-        console.error('Error updating section count:', sectionUpdateError);
-        alert('Failed to update section customer count');
-        return;
-      }
-
-      // Update local sections state
-      setSections(prevSections =>
-        prevSections.map(s =>
-          s.id === selectedSection
-            ? { ...s, customers_served: (s.customers_served || 0) + partySize }
-            : s
-        )
+    const tableCapacity = table.capacity || 4;
+    if(partySize > tableCapacity) {
+      showError(
+        'Table Capacity Exceeded',
+        `This table can only seat ${tableCapacity} ${tableCapacity === 1 ? 'person' : 'people'}, but you're trying to assign ${partySize} ${partySize === 1 ? 'person' : 'people'}. Please select a larger table or reduce the party size.`
       );
-
-      const tableType = table.section_id ? 'section table' : 'overflow table';
-      console.log(`Successfully assigned ${partySize} people to ${tableType} ${selectedTable} in section ${selectedSection}`);
-      setViewMode('list');
-      setShowAssignPopup(false);
-      setPartySize(1); // Min 1 person
-
-    } catch (error) {
-      console.error('Could not assign properly error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert('an error occurred while confirming the assignment: ' + errorMessage);
-    } finally {
-      // Always re-enable the button, even if there was an error
-      setIsAssigning(false);
+      return; 
     }
-  };
+
+    if (table.is_taken) {
+      showError(
+        'Table Already Occupied',
+        `This table is currently occupied by ${table.current_party_size} ${table.current_party_size === 1 ? 'person' : 'people'}. Please select an available table or wait for this table to become free.`
+      );
+      return;
+    }
+
+    // Prepare update data
+    const updateData = {
+      is_taken: true,
+      current_party_size: partySize,
+      current_section: selectedSection,
+      assigned_at: new Date().toISOString()
+    };
+
+    console.log('Starting assignment:', {
+      tableId: selectedTable,
+      tableName: table.name,
+      updateData,
+      sectionId: selectedSection
+    });
+
+    // 1. Update table in database
+    const { error: tableStatusError } = await supabase
+      .from('tables')
+      .update(updateData)
+      .eq('id', selectedTable);
+
+    if (tableStatusError) {
+      console.error('Error updating table status:', tableStatusError);
+      throw new Error(`Failed to update table: ${tableStatusError.message}`);
+    }
+
+    // 2. Update table locally immediately (for your own UI)
+    updateTable(selectedTable, updateData);
+    console.log(' Table updated locally');
+
+    // 3. Create service history
+    await addServiceHistoryEntry(selectedTable, selectedSection, partySize);
+    console.log(' Service history created');
+
+    // 4. Update section customer count in database
+    const currentSectionCustomers = sections.find(s => s.id === selectedSection)?.customers_served || 0;
+    const newSectionCustomers = currentSectionCustomers + partySize;
+
+    const { error: sectionUpdateError } = await supabase
+      .from('sections')
+      .update({
+        customers_served: newSectionCustomers
+      })
+      .eq('id', selectedSection);
+
+    if (sectionUpdateError) {
+      console.error('Error updating section count:', sectionUpdateError);
+      throw new Error(`Failed to update section: ${sectionUpdateError.message}`);
+    }
+
+    // 5. Update section locally immediately
+    setSections(prevSections =>
+      prevSections.map(s =>
+        s.id === selectedSection
+          ? { ...s, customers_served: newSectionCustomers }
+          : s
+      )
+    );
+    console.log(' Section updated locally');
+
+    // 6. Success - close popup and reset
+    const tableType = table.section_id ? 'section table' : 'overflow table';
+    console.log(`🎉 Successfully assigned ${partySize} people to ${tableType} ${selectedTable} in section ${selectedSection}`);
+    
+    setViewMode('list');
+    setShowAssignPopup(false);
+    setPartySize(1);
+
+  } catch (error) {
+    console.error(' Assignment failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    alert('Assignment failed: ' + errorMessage);
+  } finally {
+    setIsAssigning(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50">

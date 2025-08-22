@@ -322,6 +322,111 @@ export default function GridView({
     table: Table | null;
   }>({ isOpen: false, table: null });
 
+  useEffect(() => {
+  let isActive = true; // Flag to prevent updates after cleanup
+  
+  const createSubscriptions = () => {
+    if (!isActive) return null;
+    
+    console.log('🔄 Creating realtime subscriptions...');
+    
+    const tablesSubscription = supabase
+      .channel(`tables-changes-${Date.now()}`) // Unique channel name
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public', 
+        table: 'tables'
+      }, (payload) => {
+        if (!isActive) return; // Ignore if component unmounted
+        
+        console.log('🔥 Table change detected:', payload);
+        
+        if (payload.eventType === 'UPDATE') {
+          const updatedTable = payload.new as Table;
+          
+          onUpdateTable(updatedTable.id, {
+            is_taken: updatedTable.is_taken,
+            current_party_size: updatedTable.current_party_size,
+            current_section: updatedTable.current_section,
+            assigned_at: updatedTable.assigned_at
+          });
+          
+          console.log(`✅ Table ${updatedTable.id} updated via realtime`);
+        }
+        
+        if (payload.eventType === 'INSERT') {
+          console.log('➕ New table added:', payload.new);
+        }
+        
+        if (payload.eventType === 'DELETE') {
+          console.log('🗑️ Table deleted:', payload.old);
+        }
+      })
+      .subscribe((status, err) => {
+        console.log('📡 Tables subscription status:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log(' Tables subscription active');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(' Tables subscription error:', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⏰ Tables subscription timed out');
+        } else if (status === 'CLOSED') {
+          console.warn('🔒 Tables subscription closed');
+        }
+      });
+
+    const sectionsSubscription = supabase
+      .channel(`sections-changes-${Date.now()}`) // Unique channel name
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'sections'
+      }, (payload) => {
+        if (!isActive) return; // Ignore if component unmounted
+        
+        console.log(' Section change detected:', payload);
+        const updatedSection = payload.new as Section;
+        
+        if (onUpdateSection) {
+          onUpdateSection(updatedSection.id, {
+            customers_served: updatedSection.customers_served
+          });
+        }
+      })
+      .subscribe((status, err) => {
+        console.log('📡 Sections subscription status:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('Sections subscription active');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(' Sections subscription error:', err);
+        }
+      });
+
+    return { tablesSubscription, sectionsSubscription };
+  };
+
+  // Create initial subscriptions
+  const subscriptions = createSubscriptions();
+  
+  // Cleanup function
+  return () => {
+    isActive = false; // Prevent any pending updates
+    console.log('🧹 Cleaning up realtime subscriptions');
+    
+    if (subscriptions) {
+      try {
+        supabase.removeChannel(subscriptions.tablesSubscription);
+        supabase.removeChannel(subscriptions.sectionsSubscription);
+        console.log('✅ Subscriptions cleaned up successfully');
+      } catch (error) {
+        console.warn('⚠️ Error during cleanup:', error);
+      }
+    }
+  };
+}, []); 
+
   // Function to get table at specific position
   const getTableAt = (x: number, y: number): Table | undefined => {
     if (!tables || !Array.isArray(tables)) {
@@ -365,10 +470,9 @@ export default function GridView({
         return;
       }
 
-      // Update parent state
       onUpdateTable(table.id, {
-        is_taken: false,
-        current_party_size: 0
+      is_taken: false,
+      current_party_size: 0
       });
 
     } catch (error) {
@@ -447,7 +551,7 @@ export default function GridView({
         // Update section counts and local state...
         // (same section count logic as before)
         
-        onUpdateTable(sourceTable.id, { current_section: finalSectionId });
+        
         console.log(`Changed section assignment for table ${sourceTable.id} from ${sourceSectionId} to ${finalSectionId}`);
         return;
       }
@@ -536,30 +640,32 @@ export default function GridView({
         }
       }
 
-      // Update local table state
-      const sourceLocalUpdate: any = {
-        is_taken: false,
-        current_party_size: 0
-      };
-      
-      if (sourceIsUnassigned) {
-        sourceLocalUpdate.current_section = null;
-      }
-
-      onUpdateTable(sourceTable.id, sourceLocalUpdate);
-
-      onUpdateTable(targetTableId, {
-        is_taken: true,
-        current_party_size: sourceTable.current_party_size,
-        current_section: finalSectionId,
-        assigned_at: new Date().toISOString()
-      });
 
       const sourceType = sourceIsUnassigned ? 'overflow table' : 'section table';
       const targetType = targetIsUnassigned ? 'overflow table' : 'section table';
       const actionDescription = keepOriginalSection 
         ? `moved to different physical table but kept in same section`
         : `moved to different table and section`;
+
+
+       const sourceLocalUpdate: any = {
+          is_taken: false,
+          current_party_size: 0
+        };
+        
+        if (sourceIsUnassigned) {
+          sourceLocalUpdate.current_section = null;
+        }
+        
+        onUpdateTable(sourceTable.id, sourceLocalUpdate);
+
+        // Update target table locally  
+        onUpdateTable(targetTableId, {
+          is_taken: true,
+          current_party_size: sourceTable.current_party_size,
+          current_section: finalSectionId,
+          assigned_at: new Date().toISOString()
+        });
 
       console.log(`Successfully ${actionDescription}: ${sourceTable.current_party_size} customers from ${sourceType} ${sourceTable.id} to ${targetType} ${targetTableId} (section: ${finalSectionId})`);
 
