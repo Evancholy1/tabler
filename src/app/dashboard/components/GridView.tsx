@@ -322,6 +322,8 @@ export default function GridView({
     table: Table | null;
   }>({ isOpen: false, table: null });
 
+  
+
   useEffect(() => {
   let isActive = true; // Flag to prevent updates after cleanup
   

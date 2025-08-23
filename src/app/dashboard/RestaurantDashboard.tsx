@@ -102,6 +102,27 @@ export default function RestaurantDashboard({
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedTable, setSelectedTable] = useState('');
 
+
+  const [nextPersonInfo, setNextPersonInfo] = useState <{
+    sectionName: string;
+    sectionColor: string;
+  } | null >(null);
+  
+  useEffect(() => {
+
+  const optimalSection = getOptimalSection();
+
+  if (optimalSection) {
+    setNextPersonInfo({
+      sectionName: optimalSection.name,
+      sectionColor: optimalSection.color 
+    });
+  } else {
+    setNextPersonInfo(null);
+  }
+
+}, [sections, partySize]);
+
   const [isAssigning, setIsAssigning] = useState(false);
   const selectedSectionData = sections.find(s => s.id === selectedSection);
   const sectionDisplayName = selectedSectionData?.name || selectedSection;
@@ -720,8 +741,22 @@ export default function RestaurantDashboard({
       </div>
 
       {/* Main Content Area */}
-      <div className="main-content-area flex-1 flex items-center justify-center p-4 pb-24">
+      <div className="main-content-area flex-1 flex flex-col items-center justify-center p-4 pb-24">
         {viewMode === 'grid' ? (
+          <>
+           {/* Next Person Indicator */}
+          {nextPersonInfo && (
+             <div 
+              className="text-white p-4 rounded-lg shadow-lg mb-4 max-w-[90vw] border-3 border-black animate-pulse-opacity"
+              style={{ 
+               background: `linear-gradient(to right, ${nextPersonInfo.sectionColor || '#3b82f6'}, ${nextPersonInfo.sectionColor || '#2563eb'})` 
+              }}
+            >
+              <div className="text-center">
+                <div className="text-xl font-bold">{nextPersonInfo.sectionName}'s turn</div>
+              </div>
+            </div>
+          )}
           <GridView 
             layout={layout}
             sections={sections}
@@ -734,6 +769,7 @@ export default function RestaurantDashboard({
             onTriggerAutoAssign={handleTriggerAutoAssignFromGrid}
             onUpdateSection={updateSection}
           />
+          </>
         ) : (
           <TableView 
             layout={layout}
