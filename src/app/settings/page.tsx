@@ -9,6 +9,7 @@ type UserRecord = {
   id: string;
   email: string;
   is_setup: boolean;
+  strict_assign: boolean;
 };
 
 type Section = {
@@ -30,7 +31,9 @@ export default function SettingsPage() {
   const [updatingColorId, setUpdatingColorId] = useState<string | null>(null);
   const [showHistoryResetConfirm, setShowHistoryResetConfirm] = useState(false);
   const [isResettingHistory, setIsResettingHistory] = useState(false);
+  const [updatingStrictAssign, setUpdatingStrictAssign] = useState(false); // Add this state
   const router = useRouter();
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,7 +47,7 @@ export default function SettingsPage() {
       // Get user info
       const { data: userRow } = await supabase
         .from('users')
-        .select('id, email, is_setup')
+        .select('id, email, is_setup, strict_assign')
         .eq('id', user.id)
         .single();
 
@@ -74,6 +77,38 @@ export default function SettingsPage() {
 
     fetchData();
   }, []);
+
+  const toggleStrictAssign = async () => {
+    if (!userData) return;
+    
+    setUpdatingStrictAssign(true);
+    
+    try {
+      const newValue = !userData.strict_assign;
+      
+      const { error } = await supabase
+        .from('users')
+        .update({ strict_assign: newValue })
+        .eq('id', userData.id);
+
+      if (error) {
+        console.error('Error updating strict assign setting:', error);
+        alert('Failed to update setting');
+        return;
+      }
+
+       // Update local state
+      setUserData(prev => prev ? { ...prev, strict_assign: newValue } : prev);
+      
+      console.log(`Strict assign mode ${newValue ? 'enabled' : 'disabled'}`);
+      
+    } catch (error) {
+      console.error('Unexpected error updating strict assign:', error);
+      alert('Failed to update setting');
+    } finally {
+      setUpdatingStrictAssign(false);
+    }
+  };
 
   const handleResetLayout = async () => {
     setIsResetting(true);
@@ -572,7 +607,49 @@ export default function SettingsPage() {
             <p className="text-base text-gray-500 text-center py-8">No sections found.</p>
           )}
         </div>
-
+        
+        {/* strictAssign toggle */}
+        <div>
+          
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-base font-medium text-gray-900"> 
+                  <strong>Strict assignment:</strong>{" "}  
+                  <span className={userData.strict_assign ? "text-green-600" : "text-red-600"}>
+                  {userData.strict_assign ? "ON" : "OFF"}
+                </span>
+                </h3>
+              </div>
+              <button
+                onClick={toggleStrictAssign}
+                disabled={updatingStrictAssign}
+                className={`
+                  relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent 
+                  transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  ${userData.strict_assign ? 'bg-blue-600' : 'bg-gray-200'}
+                `}
+              >
+                <span
+                  className={`
+                    pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 
+                    transition duration-200 ease-in-out
+                    ${userData.strict_assign ? 'translate-x-5' : 'translate-x-0'}
+                  `}
+                />
+              </button>
+            </div>
+            
+            {updatingStrictAssign && (
+              <div className="mt-2 text-sm text-gray-500">Updating...</div>
+            )}
+            
+            <div className="mt-3 text-xs text-gray-500">
+               {userData.strict_assign ? 'Clicking a table will autofill to that tables section' : 'Clicking a table always assigns to the next persons turn'}
+            </div>
+          </div>
+        </div>
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 gap-3">
           <div className="flex flex-col sm:flex-row gap-3">
