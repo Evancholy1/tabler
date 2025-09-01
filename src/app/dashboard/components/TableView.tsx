@@ -27,6 +27,7 @@ interface EditServiceEntryModalProps {
   serviceEntry: ServiceHistoryEntry | null;
   sections: Section[];
   onConfirm: (updatedEntry: { tableName: string; partySize: number }) => void;
+  onDelete: () => void; // ADD THIS LINE
   onCancel: () => void;
 }
 
@@ -154,9 +155,10 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
   );
 };
 
-const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onCancel }: EditServiceEntryModalProps) => {
+const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDelete, onCancel }: EditServiceEntryModalProps) => {
   const [tableName, setTableName] = useState('');
   const [partySize, setPartySize] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // ADD THIS LINE
 
   // Update input values when serviceEntry changes
   useEffect(() => {
@@ -192,6 +194,21 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onCa
       setPartySize((current - 1).toString());
     }
   };
+
+   const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete();
+    setShowDeleteConfirm(false);
+  };
+
+   const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+  };
+
+
 
   return (
     <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
@@ -269,22 +286,65 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onCa
           </div>
 
           {/* Buttons */}
-          <div className="flex space-x-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!tableName.trim() || !partySize || parseInt(partySize, 10) <= 0}
-              className="flex-1 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              style={{ backgroundColor: !tableName.trim() || !partySize || parseInt(partySize, 10) <= 0 ? undefined : section?.color }}
-            >
-              Update Entry
-            </button>
+          <div className="space-y-3">
+            {/* Delete confirmation */}
+            {showDeleteConfirm ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="text-center text-red-800 font-medium mb-3">
+                  Delete this service entry?
+                </div>
+                <div className="text-center text-sm text-red-600 mb-4">
+                  This will remove {partySize || serviceEntry.partySize} customers from the section total.
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelDelete}
+                    className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                  >
+                    Keep Entry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDelete}
+                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  >
+                    Delete Entry
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Main action buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!tableName.trim() || !partySize || parseInt(partySize, 10) <= 0}
+                    className="flex-1 bg-blue-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Update Entry
+                  </button>
+                </div>
+                
+                {/* Delete button */}
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleDeleteClick}
+                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  > 
+                    Delete Entry
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </form>
       </div>
@@ -453,6 +513,48 @@ export default function TableView({
 
   const optimalSection = getOptimalSection();
 
+  const handleDeleteServiceEntry = async () => {
+  if (!editServiceModal.serviceEntry || !onUpdateServiceHistory || !onUpdateSection) return;
+
+  const entryToDelete = editServiceModal.serviceEntry;
+
+  try {
+    // Remove from service history
+    const updatedServiceHistory = serviceHistory.filter(entry => entry.id !== entryToDelete.id);
+    onUpdateServiceHistory(updatedServiceHistory);
+
+    // Subtract customers from section total
+    const section = sections.find(s => s.id === entryToDelete.sectionId);
+    if (section) {
+      const newCustomerCount = Math.max(0, (section.customers_served || 0) - entryToDelete.partySize);
+      
+      // Update database
+      const { error } = await supabase
+        .from('sections')
+        .update({ customers_served: newCustomerCount })
+        .eq('id', entryToDelete.sectionId);
+
+      if (error) {
+        console.error('Error updating section customer count:', error);
+        alert('Failed to update section customer count');
+        return;
+      }
+
+      // Update local section state
+      onUpdateSection(entryToDelete.sectionId, { customers_served: newCustomerCount });
+    }
+
+    console.log(`Deleted service entry: ${entryToDelete.tableName} (${entryToDelete.partySize} customers)`);
+    
+    // Close modal
+    handleCloseServiceModal();
+    
+  } catch (error) {
+    console.error('Failed to delete service entry:', error);
+    alert('An error occurred while deleting service entry');
+  }
+};
+
   return (
     <>
       <div className="bg-white rounded-lg shadow flex flex-col w-full max-w-[95vw] mx-auto" style={{ height: 'calc(100vh - 200px)' }}>
@@ -546,6 +648,7 @@ export default function TableView({
         serviceEntry={editServiceModal.serviceEntry}
         sections={sections}
         onConfirm={handleUpdateServiceEntry}
+        onDelete={handleDeleteServiceEntry}
         onCancel={handleCloseServiceModal}
       />
     </>
