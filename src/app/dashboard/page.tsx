@@ -30,6 +30,17 @@ export default async function AppPage() {
     redirect('/login');
   }
 
+  // Fetch user data from users table (including strict_assign)
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id, is_setup, strict_assign')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData || !userData.is_setup) {
+    redirect('/setup-layout');
+  }
+
   // Fetch user's layout data
   const { data: layout } = await supabase
     .from('layouts')
@@ -54,10 +65,11 @@ export default async function AppPage() {
     .eq('layout_id', layout.id);
 
   return (
-    <RestaurantDashboard 
+    <RestaurantDashboard
       layout={layout}
       sections={sections || []}
       tables={tables || []}
+      user={userData} // 
     />
   );
 }

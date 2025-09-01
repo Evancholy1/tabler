@@ -303,7 +303,8 @@ export default function GridView({
   layout, 
   sections, 
   tables,
-  partySize, 
+  partySize,
+  user,
   onUpdateTable,
   onCreateServiceHistory,
   onCompleteService,
@@ -684,9 +685,14 @@ export default function GridView({
       // Show confirmation modal for occupied tables
       setConfirmationModal({ isOpen: true, table });
     } else {
-      // Trigger auto-assign popup with this table preselected
-      if (onTriggerAutoAssign) {
+      if (user?.strict_assign && table.section_id) {
+        if (onTriggerAutoAssign){
+          onTriggerAutoAssign(table.id, table.section_id);
+        }
+      } else {
+        if (onTriggerAutoAssign) {
         onTriggerAutoAssign(table.id);
+      }
       }
     }
   };

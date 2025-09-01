@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, Table as TableIcon } from 'lucide-react';
 import GridView from './components/GridView';
 import TableView from './components/TableView';
-import { Layout, Section, Table } from './types/dashboard';
+import { Layout, Section, Table, User } from './types/dashboard';
 import { supabase } from '@/lib/supabaseClient';
 
 // Service history entry type
@@ -24,6 +24,7 @@ interface RestaurantDashboardProps {
   layout: Layout;
   sections: Section[];
   tables: Table[];
+  user: User; 
 }
 
 interface ErrorModalProps {
@@ -82,7 +83,8 @@ const ErrorModal = ({ isOpen, title, message, onClose }: ErrorModalProps) => {
 export default function RestaurantDashboard({ 
   layout, 
   sections: initialSections, 
-  tables: initialTables 
+  tables: initialTables,
+  user
 }: RestaurantDashboardProps) {
   
   // Move tables and sections to local state
@@ -558,18 +560,26 @@ export default function RestaurantDashboard({
     }
   };
 
-  // Handle clicking empty tables from GridView
-  const handleTriggerAutoAssignFromGrid = (preselectedTableId?: string) => {
-    const optimalSection = getOptimalSection();
+   const handleTriggerAutoAssignFromGrid = (preselectedTableId?: string, preselectedSectionId?: string) => {
+    let targetSectionId: string;
     
-    setSelectedSection(optimalSection.id);
+    if (preselectedSectionId) {
+      // Strict assign mode - use the provided section ID
+      targetSectionId = preselectedSectionId;
+    } else {
+      // Normal mode - use optimal section
+      const optimalSection = getOptimalSection();
+      targetSectionId = optimalSection.id;
+    }
+    
+    setSelectedSection(targetSectionId);
     
     if (preselectedTableId) {
       setSelectedTable(preselectedTableId);
     } else {
-      // Find first available table in optimal section
+      // Find first available table in target section
       const availableInSection = getFilteredTables({ 
-        sectionId: optimalSection.id, 
+        sectionId: targetSectionId, 
         availableOnly: true, 
         minCapacity: partySize 
       });
@@ -690,7 +700,6 @@ export default function RestaurantDashboard({
     // 6. Success - close popup and reset
     const tableType = table.section_id ? 'section table' : 'overflow table';
     console.log(`🎉 Successfully assigned ${partySize} people to ${tableType} ${selectedTable} in section ${selectedSection}`);
-    
     setViewMode('grid');
     setShowAssignPopup(false);
     setPartySize(1);
@@ -758,6 +767,7 @@ export default function RestaurantDashboard({
             </div>
           )}
           <GridView 
+            user = {user}
             layout={layout}
             sections={sections}
             tables={tables}
@@ -776,6 +786,7 @@ export default function RestaurantDashboard({
             sections={sections}
             tables={tables}
             partySize={partySize}
+            user={user} // Add this line
             onUpdateTable={updateTable}
             onUpdateSection={updateSection}
             serviceHistory={serviceHistory}
