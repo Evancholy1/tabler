@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { ViewProps, Section } from '../types/dashboard';
+import { Trash2 } from 'lucide-react';
 
 // Use the same interface as RestaurantDashboard
 interface ServiceHistoryEntry {
@@ -307,9 +308,9 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   <button
                     type="button"
                     onClick={handleConfirmDelete}
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
                   >
-                    Delete Entry
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -327,7 +328,7 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   <button
                     type="submit"
                     disabled={!tableName.trim() || !partySize || parseInt(partySize, 10) <= 0}
-                    className="flex-1 bg-blue-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     Update Entry
                   </button>
@@ -338,9 +339,9 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   <button
                     type="button"
                     onClick={handleDeleteClick}
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
                   > 
-                    Delete Entry
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </>
@@ -519,6 +520,47 @@ export default function TableView({
   const entryToDelete = editServiceModal.serviceEntry;
 
   try {
+
+    // 1. DELETE from service_history database
+    const { error: deleteError } = await supabase
+      .from('service_history')
+      .delete()
+      .eq('id', entryToDelete.id);
+
+    if (deleteError) {
+      console.error('Error deleting service history entry:', deleteError);
+      alert('Failed to delete service history entry');
+      return;
+    }
+
+    // 2. Update the table status - mark as not taken
+    const table = tables.find(t => t.id === entryToDelete.tableId);
+    const isUnassignedTable = table?.section_id === null;
+
+    const tableUpdateData: any = {
+      is_taken: false,
+      current_party_size: 0
+    };
+
+    // If it's an unassigned table, reset current_section to null
+    if (isUnassignedTable) {
+      tableUpdateData.current_section = null;
+    }
+
+    const { error: tableError } = await supabase
+      .from('tables')
+      .update(tableUpdateData)
+      .eq('id', entryToDelete.tableId);
+
+    if (tableError) {
+      console.error('Error updating table status:', tableError);
+      alert('Failed to update table status');
+      return;
+    }
+
+    // 3. Update local table state
+    onUpdateTable(entryToDelete.tableId, tableUpdateData);
+
     // Remove from service history
     const updatedServiceHistory = serviceHistory.filter(entry => entry.id !== entryToDelete.id);
     onUpdateServiceHistory(updatedServiceHistory);
