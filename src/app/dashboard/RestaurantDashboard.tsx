@@ -620,14 +620,14 @@ export default function RestaurantDashboard({
       return;
     }
 
-    const tableCapacity = table.capacity || 4;
-    if(partySize > tableCapacity) {
-      showError(
-        'Table Capacity Exceeded',
-        `This table can only seat ${tableCapacity} ${tableCapacity === 1 ? 'person' : 'people'}, but you're trying to assign ${partySize} ${partySize === 1 ? 'person' : 'people'}. Please select a larger table or reduce the party size.`
-      );
-      return; 
-    }
+    // const tableCapacity = table.capacity || 4;
+    // if(partySize > tableCapacity) {
+    //   showError(
+    //     'Table Capacity Exceeded',
+    //     `This table can only seat ${tableCapacity} ${tableCapacity === 1 ? 'person' : 'people'}, but you're trying to assign ${partySize} ${partySize === 1 ? 'person' : 'people'}. Please select a larger table or reduce the party size.`
+    //   );
+    //   return; 
+    // }
 
     if (table.is_taken) {
       showError(
