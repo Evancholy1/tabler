@@ -1,7 +1,7 @@
 // src/app/app/components/TableView.tsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { ViewProps, Section } from '../types/dashboard';
+import { ViewProps, Section, Table } from '../types/dashboard';
 import { Trash2 } from 'lucide-react';
 
 // Use the same interface as RestaurantDashboard
@@ -27,8 +27,14 @@ interface EditServiceEntryModalProps {
   isOpen: boolean;
   serviceEntry: ServiceHistoryEntry | null;
   sections: Section[];
-  onConfirm: (updatedEntry: { tableName: string; partySize: number }) => void;
-  onDelete: () => void; // ADD THIS LINE
+  tables: Table[]; 
+  onConfirm: (updatedEntry: { 
+    tableName: string; 
+    partySize: number; 
+    targetTableId: string; 
+    targetSectionId: string; 
+  }) => void;
+  onDelete: () => void; 
   onCancel: () => void;
 }
 
@@ -156,33 +162,72 @@ const EditCustomerCountModal = ({ isOpen, section, onConfirm, onCancel }: EditCu
   );
 };
 
-const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDelete, onCancel }: EditServiceEntryModalProps) => {
-  const [tableName, setTableName] = useState('');
+const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, tables, onConfirm, onDelete, onCancel }: EditServiceEntryModalProps) => {
+  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const [partySize, setPartySize] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // ADD THIS LINE
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const hasChanges = () => {
+    if (!serviceEntry) return false;
+    const tableChanged = selectedTable !== serviceEntry.tableId;
+    const sectionChanged = selectedSection !== serviceEntry.sectionId;
+    const partySizeChanged = parseInt(partySize, 10) !== serviceEntry.partySize;
+    return tableChanged || sectionChanged || partySizeChanged;
+  };
+
+  const getAvailableTables = () => {
+    return tables.filter(table => 
+      (!table.is_taken || table.id === serviceEntry?.tableId)
+    );
+  };
+
+  const handleTableChange = (tableId: string) => {
+    setSelectedTable(tableId);
+    const selectedTableData = tables.find(t => t.id === tableId);
+    if (selectedTableData?.section_id) {
+      setSelectedSection(selectedTableData.section_id);
+    }
+  };
+
+  const handleSectionChange = (sectionId: string) => {
+    setSelectedSection(sectionId);
+  };
 
   // Update input values when serviceEntry changes
   useEffect(() => {
-    if (serviceEntry) {
-      setTableName(serviceEntry.tableName);
+    if (serviceEntry && isOpen) {
+      setSelectedTable(serviceEntry.tableId);
+      setSelectedSection(serviceEntry.sectionId);
       setPartySize(serviceEntry.partySize.toString());
+      setShowDeleteConfirm(false);
     }
-  }, [serviceEntry]);
+  }, [serviceEntry, isOpen]);
+
 
   if (!isOpen || !serviceEntry) return null;
+  const currentSection = sections.find(s => s.id === serviceEntry?.sectionId);
+  const selectedSectionData = sections.find(s => s.id === selectedSection);
+  const selectedTableData = tables.find(t => t.id === selectedTable);
+  const availableTables = getAvailableTables();
+  const isSameTable = selectedTable === serviceEntry?.tableId;
+  const isSameSection = selectedSection === serviceEntry?.sectionId;
+  const isSamePartySize = parseInt(partySize, 10) === serviceEntry.partySize;
 
-  const section = sections.find(s => s.id === serviceEntry.sectionId);
+
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newPartySize = parseInt(partySize, 10);
-    if (!isNaN(newPartySize) && newPartySize > 0 && tableName.trim()) {
-      onConfirm({
-        tableName: tableName.trim(),
-        partySize: newPartySize
-      });
-    }
-  };
+  e.preventDefault();
+  const newPartySize = parseInt(partySize, 10);
+  if (!isNaN(newPartySize) && newPartySize > 0 && selectedTable && selectedSection && serviceEntry) {
+    onConfirm({
+      tableName: selectedTableData?.name || selectedTable.slice(-2) || '',
+      partySize: newPartySize,
+      targetTableId: selectedTable,
+      targetSectionId: selectedSection
+    });
+  }
+};
 
   const handlePartySizeIncrement = () => {
     const current = parseInt(partySize, 10) || 0;
@@ -209,82 +254,120 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
     setShowDeleteConfirm(false);
   };
 
-
-
-  return (
+return (
     <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b" style={{ backgroundColor: `${section?.color}20` }}>
+        <div className="p-6 border-b" style={{ backgroundColor: `${currentSection?.color}20` }}>
           <h3 className="text-xl font-semibold text-gray-900">Edit Service Entry</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Section: <span className="font-medium" style={{ color: section?.color }}>{section?.name}</span>
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {new Date(serviceEntry.timestamp).toLocaleString()}
-          </p>
         </div>
 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Table Name Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Table Name
-            </label>
-            <input
-              type="text"
-              value={tableName}
-              onChange={(e) => setTableName(e.target.value)}
-              placeholder="Enter table name"
-              className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none text-lg"
-            />
-          </div>
-
-          {/* Party Size Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Number of Customers
-            </label>
-            
-            <div className="flex items-center justify-center space-x-4">
-              <button
-                type="button"
-                onClick={handlePartySizeDecrement}
-                className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
-              >
-                −
-              </button>
-              
-              <input
-                type="number"
-                value={partySize}
-                onChange={(e) => setPartySize(e.target.value)}
-                min="1"
-                className="w-24 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none"
-              />
-              
-              <button
-                type="button"
-                onClick={handlePartySizeIncrement}
-                className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
-              >
-                +
-              </button>
+          {availableTables.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-gray-500">No available tables</p>
             </div>
-          </div>
+          ) : (
+            <>
 
-          {/* Summary */}
-          <div className="bg-gray-50 p-4 rounded-lg text-center">
-            <div className="text-sm text-gray-600 space-y-1">
-              <div>
-                <strong>Before:</strong> {serviceEntry.tableName} → {serviceEntry.partySize}
+        {/* Section Dropdown */}
+        <div>
+          <label className="block text-2xl font-bold text-gray-700 mb-4">
+            Section
+          </label>
+          <select
+            value={selectedSection}
+            onChange={(e) => handleSectionChange(e.target.value)}
+            className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
+          >
+            {sections.map(section => (
+              <option key={section.id} value={section.id}>
+                {section.name} 
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Table Dropdown */}
+        <div>
+          <label className="block text-2xl font-bold text-gray-700 mb-4">
+            Table
+          </label>
+          <select
+            value={selectedTable}
+            onChange={(e) => handleTableChange(e.target.value)}
+            className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
+          >
+            {/* Show all available tables grouped by section */}
+            {sections.map(section => {
+              const sectionTables = availableTables.filter(table => table.section_id === section.id);
+              if (sectionTables.length === 0) return null;
+              
+              return (
+                <optgroup key={section.id} label={`${section.name} Tables`}>
+                  {sectionTables.map(table => (
+                    <option key={table.id} value={table.id}>
+                      {table.name || table.id} 
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+
+                  {/* Unassigned overflow tables */}
+                  {(() => {
+                    const unassignedTables = availableTables.filter(table => table.section_id === null);
+                    if (unassignedTables.length === 0) return null;
+                    
+                    return (
+                      <optgroup label="🚨 Overflow Tables (Unassigned)">
+                        {unassignedTables.map(table => (
+                          <option key={table.id} value={table.id}>
+                            {table.name || table.id} (Capacity: {table.capacity || 4}) - Overflow
+                            {table.id === serviceEntry?.tableId ? ' - Current' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })()}
+                </select>
               </div>
+
+              {/* Party Size Input */}
               <div>
-                <strong>After:</strong> <span style={{ color: section?.color }}>{tableName || 'Table'} → {partySize || '0'}</span>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Number of Customers
+                </label>
+                
+                <div className="flex items-center justify-center space-x-4">
+                  <button
+                    type="button"
+                    onClick={handlePartySizeDecrement}
+                    className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
+                  >
+                    −
+                  </button>
+                  
+                  <input
+                    type="number"
+                    value={partySize}
+                    onChange={(e) => setPartySize(e.target.value)}
+                    min="1"
+                    className="w-24 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={handlePartySizeIncrement}
+                    className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* Buttons */}
           <div className="space-y-3">
@@ -295,7 +378,7 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   Delete this service entry?
                 </div>
                 <div className="text-center text-sm text-red-600 mb-4">
-                  This will remove {partySize || serviceEntry.partySize} customers from the section total.
+                  This will remove {partySize || serviceEntry?.partySize} customers from the section total and free the table.
                 </div>
                 <div className="flex space-x-3">
                   <button
@@ -308,9 +391,9 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   <button
                     type="button"
                     onClick={handleConfirmDelete}
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
+                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
                   >
-                    <Trash2 size={16} />
+                    Delete Entry
                   </button>
                 </div>
               </div>
@@ -327,8 +410,8 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   </button>
                   <button
                     type="submit"
-                    disabled={!tableName.trim() || !partySize || parseInt(partySize, 10) <= 0}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    disabled={!selectedTable || !selectedSection || !partySize || parseInt(partySize, 10) <= 0 || !hasChanges()}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     Update Entry
                   </button>
@@ -339,7 +422,7 @@ const EditServiceEntryModal = ({ isOpen, serviceEntry, sections, onConfirm, onDe
                   <button
                     type="button"
                     onClick={handleDeleteClick}
-                    className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
+                    className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
                   > 
                     <Trash2 size={16} />
                   </button>
@@ -453,56 +536,169 @@ export default function TableView({
     }
   };
 
-  const handleUpdateServiceEntry = async (updatedEntry: { tableName: string; partySize: number }) => {
-    if (!editServiceModal.serviceEntry || !onUpdateServiceHistory) return;
+const handleUpdateServiceEntry = async (updatedEntry: { 
+  tableName: string; 
+  partySize: number; 
+  targetTableId: string; 
+  targetSectionId: string; 
+}) => {
+  if (!editServiceModal.serviceEntry || !onUpdateServiceHistory) return;
 
-    const originalEntry = editServiceModal.serviceEntry;
-    const partySizeDifference = updatedEntry.partySize - originalEntry.partySize;
+  const originalEntry = editServiceModal.serviceEntry;
+  const partySizeDifference = updatedEntry.partySize - originalEntry.partySize;
+  const tableChanged = updatedEntry.targetTableId !== originalEntry.tableId;
+  const sectionChanged = updatedEntry.targetSectionId !== originalEntry.sectionId;
 
-    try {
-      // Update the service history
-      const updatedServiceHistory = serviceHistory.map(entry => 
-        entry.id === originalEntry.id 
-          ? { ...entry, tableName: updatedEntry.tableName, partySize: updatedEntry.partySize }
-          : entry
-      );
+  try {
+    // 1. UPDATE the service_history entry in the database
+    const { error: historyError } = await supabase
+      .from('service_history')
+      .update({
+        table_name: updatedEntry.tableName,
+        party_size: updatedEntry.partySize,
+        table_id: updatedEntry.targetTableId,
+        section_id: updatedEntry.targetSectionId
+      })
+      .eq('id', originalEntry.id);
 
-      // Update local service history state
-      onUpdateServiceHistory(updatedServiceHistory);
+    if (historyError) {
+      console.error('Error updating service history:', historyError);
+      alert('Failed to update service history');
+      return;
+    }
 
-      // Update section customer count if party size changed
-      if (partySizeDifference !== 0 && onUpdateSection) {
-        const section = sections.find(s => s.id === originalEntry.sectionId);
-        if (section) {
-          const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
-          
-          // Update database
-          const { error } = await supabase
-            .from('sections')
-            .update({ customers_served: newCustomerCount })
-            .eq('id', originalEntry.sectionId);
+if (tableChanged) {
+  const currentTable = tables.find(t => t.id === originalEntry.tableId);
+  
+  // Only proceed with table changes if the original table is still taken
+  if (currentTable?.is_taken) {
+    // Free the old table
+    const isOldTableUnassigned = currentTable.section_id === null;
 
-          if (error) {
-            console.error('Error updating section customer count:', error);
-            alert('Failed to update section customer count');
-            return;
+    const oldTableUpdate: any = {
+      is_taken: false,
+      current_party_size: 0
+    };
+
+    if (isOldTableUnassigned) {
+      oldTableUpdate.current_section = null;
+    } 
+
+    await supabase
+      .from('tables')
+      .update(oldTableUpdate)
+      .eq('id', originalEntry.tableId);
+    
+    onUpdateTable(originalEntry.tableId, oldTableUpdate);
+
+    // Occupy the new table
+    const newTableUpdate: any = {
+      is_taken: true,
+      current_party_size: updatedEntry.partySize,
+      current_section: updatedEntry.targetSectionId,  
+      assigned_at: new Date().toISOString()
+    };
+
+    await supabase
+      .from('tables')
+      .update(newTableUpdate)
+      .eq('id', updatedEntry.targetTableId);
+    
+    onUpdateTable(updatedEntry.targetTableId, newTableUpdate);
+  }
+  // If table is not taken, only service history was updated (step 1)
+
+} else if (sectionChanged) {
+  // Same table, different section
+  // Only update the table if it's still taken (active service)
+  const currentTable = tables.find(t => t.id === originalEntry.tableId);
+  
+  if (currentTable?.is_taken) {
+    // Table is still active, update its current_section
+    await supabase
+      .from('tables')
+      .update({ current_section: updatedEntry.targetSectionId })
+      .eq('id', originalEntry.tableId);
+    
+    onUpdateTable(originalEntry.tableId, { current_section: updatedEntry.targetSectionId });
+  }
+  // If table is not taken, we only update service history (already done in step 1)
+
+} else if (partySizeDifference !== 0) {
+  // Just update party size on the same table
+  // Only update if table is still taken
+  const currentTable = tables.find(t => t.id === originalEntry.tableId);
+  
+  if (currentTable?.is_taken) {
+    await supabase
+      .from('tables')
+      .update({ current_party_size: updatedEntry.partySize })
+      .eq('id', originalEntry.tableId);
+    
+    onUpdateTable(originalEntry.tableId, { current_party_size: updatedEntry.partySize });
+  }
+  // If table is not taken, we only update service history (already done in step 1)
+}
+
+    // 3. Update local service history state
+    const updatedServiceHistory = serviceHistory.map(entry => 
+      entry.id === originalEntry.id 
+        ? { 
+            ...entry, 
+            tableName: updatedEntry.tableName, 
+            partySize: updatedEntry.partySize,
+            tableId: updatedEntry.targetTableId,
+            sectionId: updatedEntry.targetSectionId
           }
+          : entry
+    );
+    onUpdateServiceHistory(updatedServiceHistory);
 
-          // Update local section state
-          onUpdateSection(originalEntry.sectionId, { customers_served: newCustomerCount });
-        }
+    // 4. Update section customer counts
+    if (sectionChanged && onUpdateSection) {
+      // Subtract from old section
+      const oldSection = sections.find(s => s.id === originalEntry.sectionId);
+      if (oldSection) {
+        const newOldCount = Math.max(0, (oldSection.customers_served || 0) - originalEntry.partySize);
+        await supabase
+          .from('sections')
+          .update({ customers_served: newOldCount })
+          .eq('id', originalEntry.sectionId);
+        onUpdateSection(originalEntry.sectionId, { customers_served: newOldCount });
       }
 
-      console.log(`Updated service entry: ${originalEntry.tableName} → ${updatedEntry.tableName}, ${originalEntry.partySize} → ${updatedEntry.partySize}`);
-      
-      // Close modal
-      handleCloseServiceModal();
-      
-    } catch (error) {
-      console.error('Failed to update service entry:', error);
-      alert('An error occurred while updating service entry');
+      // Add to new section
+      const newSection = sections.find(s => s.id === updatedEntry.targetSectionId);
+      if (newSection) {
+        const newNewCount = (newSection.customers_served || 0) + updatedEntry.partySize;
+        await supabase
+          .from('sections')
+          .update({ customers_served: newNewCount })
+          .eq('id', updatedEntry.targetSectionId);
+        onUpdateSection(updatedEntry.targetSectionId, { customers_served: newNewCount });
+      }
+    } else if (partySizeDifference !== 0 && onUpdateSection) {
+      // Only party size changed, same section
+      const section = sections.find(s => s.id === originalEntry.sectionId);
+      if (section) {
+        const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
+        await supabase
+          .from('sections')
+          .update({ customers_served: newCustomerCount })
+          .eq('id', originalEntry.sectionId);
+        onUpdateSection(originalEntry.sectionId, { customers_served: newCustomerCount });
+      }
     }
-  };
+
+    console.log(`Updated service entry: ${updatedEntry.tableName} in section ${updatedEntry.targetSectionId}`);
+    handleCloseServiceModal();
+    
+  } catch (error) {
+    console.error('Failed to update service entry:', error);
+    alert('An error occurred while updating service entry');
+  }
+};
+
 
   const handleCloseModal = () => {
     setEditModal({ isOpen: false, section: null });
@@ -520,7 +716,6 @@ export default function TableView({
   const entryToDelete = editServiceModal.serviceEntry;
 
   try {
-
     // 1. DELETE from service_history database
     const { error: deleteError } = await supabase
       .from('service_history')
@@ -689,6 +884,7 @@ export default function TableView({
         isOpen={editServiceModal.isOpen}
         serviceEntry={editServiceModal.serviceEntry}
         sections={sections}
+         tables={tables} 
         onConfirm={handleUpdateServiceEntry}
         onDelete={handleDeleteServiceEntry}
         onCancel={handleCloseServiceModal}

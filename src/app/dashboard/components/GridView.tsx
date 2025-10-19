@@ -29,32 +29,34 @@ const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel, onMove }: C
 
   return (
     <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Manage Table: {tableName}
-        </h3>
-        <p className="text-gray-600 mb-6">
-          What would you like to do with the customers at <strong>{tableName}</strong>?
-        </p>
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={onMove}
-            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
-          >
-            Move/Change Section
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-          >
-            Remove Customers
-          </button>
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-          >
-            Cancel
-          </button>
+      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-8 overflow-hidden">
+        <div className="p-8 space-y-6">
+          <h3 className="text-3xl font-bold text-gray-900 mb-2">
+            Manage Table: {tableName}
+          </h3>
+          <p className="text-xl text-gray-600 mb-8">
+            What would you like to do with the customers at <strong>{tableName}</strong>?
+          </p>
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={onMove}
+              className="px-8 py-5 text-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-2xl transition-colors"
+            >
+              Move/Change Section
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-8 py-5 text-xl font-semibold text-white bg-red-600 hover:bg-red-700 rounded-2xl transition-colors"
+            >
+              Remove Customers
+            </button>
+            <button
+              onClick={onCancel}
+              className="px-8 py-5 text-xl font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -143,7 +145,7 @@ const MoveCustomersModal = ({
   const sourceSection = sections.find(s => s.id === sourceTable.current_section);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
         <div className="bg-blue-50 p-4 border-b">
@@ -497,7 +499,7 @@ export default function GridView({
       const isSectionChange = sourceSectionId !== finalSectionId;
 
 
-      //when changing only sectionc
+      //when changing only section
       if (isSameTable && isSectionChange) {
         const { error } = await supabase
           .from('tables')
