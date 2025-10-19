@@ -317,7 +317,7 @@ const ManageTableModal = ({
                 <div className="flex justify-center">
                   <button
                     type="button"
-                    onClick={handleDeleteClick}
+                    onClick={handleConfirmDelete}
                     className="flex-1 bg-red-600 text-white py-4 px-10 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                   >
                      <Trash2 size={22} />
