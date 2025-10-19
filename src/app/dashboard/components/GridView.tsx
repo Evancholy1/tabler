@@ -5,198 +5,150 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 import { Layout, Section, Table, ViewProps } from '../types/dashboard';
+import { Trash2 } from 'lucide-react';
 
 
-interface ConfirmationModalProps {
+interface ManageTableModalProps {
   isOpen: boolean;
-  tableName: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  onMove: () => void;
-}
-
-interface MoveCustomersModalProps {
-  isOpen: boolean;
-  sourceTable: Table | null;
+  table: Table | null;
   sections: Section[];
   tables: Table[];
-  onConfirm: (targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => void;
+  onConfirm: (updatedData: { 
+    targetTableId: string; 
+    targetSectionId: string; 
+    partySize: number;
+  }) => void;
+  onDelete: () => void;
   onCancel: () => void;
 }
 
-const ConfirmationModal = ({ isOpen, tableName, onConfirm, onCancel, onMove }: ConfirmationModalProps) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-8 overflow-hidden">
-        <div className="p-8 space-y-6">
-          <h3 className="text-3xl font-bold text-gray-900 mb-2">
-            Manage Table: {tableName}
-          </h3>
-          <p className="text-xl text-gray-600 mb-8">
-            What would you like to do with the customers at <strong>{tableName}</strong>?
-          </p>
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={onMove}
-              className="px-8 py-5 text-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-2xl transition-colors"
-            >
-              Move/Change Section
-            </button>
-            <button
-              onClick={onConfirm}
-              className="px-8 py-5 text-xl font-semibold text-white bg-red-600 hover:bg-red-700 rounded-2xl transition-colors"
-            >
-              Remove Customers
-            </button>
-            <button
-              onClick={onCancel}
-              className="px-8 py-5 text-xl font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const MoveCustomersModal = ({ 
+const ManageTableModal = ({ 
   isOpen, 
-  sourceTable, 
+  table, 
   sections, 
   tables, 
   onConfirm, 
+  onDelete, 
   onCancel 
-}: MoveCustomersModalProps) => {
+}: ManageTableModalProps) => {
   const [selectedTable, setSelectedTable] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
-  const [keepOriginalSection, setKeepOriginalSection] = useState(false);
+  const [partySize, setPartySize] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const hasChanges = () => {
-    if (!sourceTable) return false;
-    
-    const tableChanged = selectedTable !== sourceTable.id;
-    const sectionChanged = !keepOriginalSection && selectedSection !== sourceTable.current_section;
-    const keepOriginalChanged = keepOriginalSection && selectedSection !== sourceTable.current_section;
-    
-    return tableChanged || sectionChanged || keepOriginalChanged;
+    if (!table) return false;
+    const tableChanged = selectedTable !== table.id;
+    const sectionChanged = selectedSection !== table.current_section;
+    const partySizeChanged = parseInt(partySize, 10) !== table.current_party_size;
+    return tableChanged || sectionChanged || partySizeChanged;
   };
 
-  useEffect(() => {
-    if (isOpen && sourceTable) {
-      setSelectedTable(sourceTable.id);
-      setSelectedSection(sourceTable.current_section || '');
-      setKeepOriginalSection(false);
-    }
-  }, [isOpen, sourceTable]);
-
-  // Get available tables (not taken and not the source table)
   const getAvailableTables = () => {
-    return tables.filter(table => 
-      (!table.is_taken || table.id === sourceTable?.id) && // Include current table
-      (table.capacity || 4) >= (sourceTable?.current_party_size || 1)
+    return tables.filter(t => 
+      (!t.is_taken || t.id === table?.id) &&
+      (t.capacity || 4) >= parseInt(partySize, 10)
     );
   };
 
-  // Handle table selection - auto-set section based on table's section_id unless keeping original
   const handleTableChange = (tableId: string) => {
     setSelectedTable(tableId);
-    if (!keepOriginalSection) {
-      const selectedTableData = tables.find(t => t.id === tableId);
-      if (selectedTableData) {
-        if (selectedTableData.section_id) {
-          // Regular section table
-          setSelectedSection(selectedTableData.section_id);
-        } else {
-          // Unassigned table - need to select a section for assignment
-          setSelectedSection('');
-        }
-      }
+    const selectedTableData = tables.find(t => t.id === tableId);
+    if (selectedTableData?.section_id) {
+      setSelectedSection(selectedTableData.section_id);
     }
   };
 
-  // Handle section change - filter tables by section
   const handleSectionChange = (sectionId: string) => {
     setSelectedSection(sectionId);
-    // Clear table selection when section changes
-    // setSelectedTable('');
   };
 
-  // Handle keep original section toggle
-  const handleKeepOriginalToggle = (checked: boolean) => {
-    setKeepOriginalSection(checked);
-    if (checked && sourceTable?.current_section) {
-      setSelectedSection(sourceTable.current_section);
-    } else if (selectedTable) {
-      // Reset to table's default section
-      const selectedTableData = tables.find(t => t.id === selectedTable);
-      if (selectedTableData && selectedTableData.section_id) {
-        setSelectedSection(selectedTableData.section_id);
-      }
+  // Update input values when table changes
+  useEffect(() => {
+    if (table && isOpen) {
+      setSelectedTable(table.id);
+      setSelectedSection(table.current_section || '');
+      setPartySize(table.current_party_size.toString());
+      setShowDeleteConfirm(false);
+    }
+  }, [table, isOpen]);
+
+  if (!isOpen || !table) return null;
+
+  const currentSection = sections.find(s => s.id === table.current_section);
+  const selectedSectionData = sections.find(s => s.id === selectedSection);
+  const selectedTableData = tables.find(t => t.id === selectedTable);
+  const availableTables = getAvailableTables();
+  const isSameTable = selectedTable === table.id;
+  const isSameSection = selectedSection === table.current_section;
+  const isSamePartySize = parseInt(partySize, 10) === table.current_party_size;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newPartySize = parseInt(partySize, 10);
+    if (!isNaN(newPartySize) && newPartySize > 0 && selectedTable && selectedSection) {
+      onConfirm({
+        targetTableId: selectedTable,
+        targetSectionId: selectedSection,
+        partySize: newPartySize
+      });
     }
   };
 
-  if (!isOpen || !sourceTable) return null;
+  const handlePartySizeIncrement = () => {
+    const current = parseInt(partySize, 10) || 0;
+    setPartySize((current + 1).toString());
+  };
 
-  const availableTables = getAvailableTables();
-  const sourceSection = sections.find(s => s.id === sourceTable.current_section);
+  const handlePartySizeDecrement = () => {
+    const current = parseInt(partySize, 10) || 0;
+    if (current > 1) {
+      setPartySize((current - 1).toString());
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete();
+    setShowDeleteConfirm(false);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+  };
 
   return (
     <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-50 p-4 border-b">
-          <h3 className="text-xl font-semibold text-blue-900">Move Customers</h3>
-          <p className="text-sm text-blue-700">
-            Moving {sourceTable.current_party_size} {sourceTable.current_party_size === 1 ? 'person' : 'people'} from {sourceTable.name || sourceTable.id}
+        <div className="p-6 border-b" style={{ backgroundColor: `${currentSection?.color}20` }}>
+          <h3 className="text-xl font-semibold text-gray-900">Manage Table</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {table.name || `T${table.id.slice(-2)}`} - {table.current_party_size} {table.current_party_size === 1 ? 'customer' : 'customers'}
           </p>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {availableTables.length === 0 ? (
             <div className="text-center py-4">
-              <p className="text-gray-500">No available tables with sufficient capacity</p>
+              <p className="text-gray-500">No available tables</p>
             </div>
           ) : (
             <>
-              {/* Keep Original Section Toggle */}
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={keepOriginalSection}
-                    onChange={(e) => handleKeepOriginalToggle(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-yellow-800">
-                    Keep customers in original section ({sourceSection?.name})
-                  </span>
-                </label>
-                <p className="text-xs text-yellow-700 mt-1 ml-7">
-                  Move to different table but keep section
-                </p>
-              </div>
-
               {/* Section Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {keepOriginalSection ? 'Section Assignment (Fixed)' : 'Target Section'}
+                <label className="block text-2xl font-bold text-gray-700 mb-4">
+                  Section
                 </label>
                 <select
                   value={selectedSection}
                   onChange={(e) => handleSectionChange(e.target.value)}
-                  disabled={keepOriginalSection}
-                  className={`w-full p-3 border-2 rounded-lg bg-white focus:outline-none ${
-                    keepOriginalSection 
-                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
-                      : 'border-blue-200 focus:border-blue-400'
-                  }`}
+                  className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
                 >
-                  <option value="">Select a section...</option>
                   {sections.map(section => (
                     <option key={section.id} value={section.id}>
                       {section.name}
@@ -207,26 +159,25 @@ const MoveCustomersModal = ({
 
               {/* Table Dropdown */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2"> 
-                  Target Table
+                <label className="block text-2xl font-bold text-gray-700 mb-4">
+                  Table
                 </label>
                 <select
                   value={selectedTable}
                   onChange={(e) => handleTableChange(e.target.value)}
-                  className="w-full p-3 border-2 border-blue-200 rounded-lg bg-white focus:border-blue-400 focus:outline-none"
+                  className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
                 >
-                  <option value="">Select a table...</option>
-                  
                   {/* Show all available tables grouped by section */}
                   {sections.map(section => {
-                    const sectionTables = getAvailableTables().filter(table => table.section_id === section.id);
+                    const sectionTables = availableTables.filter(t => t.section_id === section.id);
                     if (sectionTables.length === 0) return null;
                     
                     return (
                       <optgroup key={section.id} label={`${section.name} Tables`}>
-                        {sectionTables.map(table => (
-                          <option key={table.id} value={table.id}>
-                            {table.name || table.id} (Capacity: {table.capacity || 4})
+                        {sectionTables.map(t => (
+                          <option key={t.id} value={t.id}>
+                            {t.name || t.id}
+                    
                           </option>
                         ))}
                       </optgroup>
@@ -235,14 +186,15 @@ const MoveCustomersModal = ({
 
                   {/* Unassigned overflow tables */}
                   {(() => {
-                    const unassignedTables = getAvailableTables().filter(table => table.section_id === null);
+                    const unassignedTables = availableTables.filter(t => t.section_id === null);
                     if (unassignedTables.length === 0) return null;
                     
                     return (
                       <optgroup label="🚨 Overflow Tables (Unassigned)">
-                        {unassignedTables.map(table => (
-                          <option key={table.id} value={table.id}>
-                            {table.name || table.id} (Capacity: {table.capacity || 4}) - Overflow
+                        {unassignedTables.map(t => (
+                          <option key={t.id} value={t.id}>
+                            {t.name || t.id} (Capacity: {t.capacity || 4}) - Overflow
+                            {t.id === table.id ? ' - Current' : ''}
                           </option>
                         ))}
                       </optgroup>
@@ -251,51 +203,130 @@ const MoveCustomersModal = ({
                 </select>
               </div>
 
-              {/* Move Summary */}
-              {selectedTable && selectedSection && (
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-blue-600 mb-2">
-                      Change Summary
+              {/* Party Size Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Number of Customers
+                </label>
+                
+                <div className="flex items-center justify-center space-x-4">
+                  <button
+                    type="button"
+                    onClick={handlePartySizeDecrement}
+                    className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
+                  >
+                    −
+                  </button>
+                  
+                  <input
+                    type="number"
+                    value={partySize}
+                    onChange={(e) => setPartySize(e.target.value)}
+                    min="1"
+                    className="w-24 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={handlePartySizeIncrement}
+                    className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-xl font-bold transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+
+            {/* Summary */}
+            {(selectedTable && selectedSection) && (
+              <div className="bg-green-50 p-8 rounded-2xl max-w-[100%] mx-auto">
+                <div className="text-center">
+                  {/* Table Assignment */}
+                  <div className="text-5xl font-bold text-black mb-4 whitespace-nowrap">
+                    {table.name || table.id} → {selectedTableData?.name || selectedTable}
+                  </div>
+                  
+                  {/* Overflow table indicator */}
+                  {selectedTableData?.section_id === null && (
+                    <div className="text-2xl font-bold text-orange-600 mb-2">
+                      🚨 OVERFLOW TABLE
                     </div>
-                    <div className="text-sm text-gray-700 space-y-1">
-                      <div>
-                        <strong>Table Change</strong> {sourceTable.name || sourceTable.id} → {tables.find(t => t.id === selectedTable)?.name || selectedTable}
-                      </div>
-                      <div>
-                        <strong>Section Change</strong> {sourceSection?.name} → {sections.find(s => s.id === selectedSection)?.name}
-                        {keepOriginalSection && <span className="text-yellow-600 font-medium"> (No Change)</span>}
-                        {tables.find(t => t.id === selectedTable)?.section_id === null && (
-                          <span className="text-orange-600 font-medium"> (Overflow Table)</span>
-                        )}
-                      </div>
-                      <div>
-                        <strong>Party Size:</strong> {sourceTable.current_party_size} {sourceTable.current_party_size === 1 ? 'person' : 'people'}
-                      </div>
-                    </div>
+                  )}
+                  
+                  {/* Section and Customer Count Change */}
+                  <div className="text-4xl font-bold text-green-600 mb-4">
+                    {currentSection?.name}:{currentSection?.customers_served || 0} → {selectedSectionData?.name}:{(selectedSectionData?.customers_served || 0) + (isSameSection ? parseInt(partySize, 10) - table.current_party_size : parseInt(partySize, 10))}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
             </>
           )}
-        </div>
 
-        {/* Footer Buttons */}
-        <div className="flex space-x-4 p-6 bg-gray-50">
-          <button
-            onClick={onCancel}
-            className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(selectedTable, selectedSection, keepOriginalSection)}
-            disabled={!selectedTable || !selectedSection || availableTables.length === 0 || !hasChanges()}
-            className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            Confirm 
-          </button>
-        </div>
+          
+
+          {/* Buttons */}
+          <div className="space-y-3">
+            {/* Delete confirmation */}
+            {showDeleteConfirm ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="text-center text-red-800 font-medium mb-3">
+                  Remove all customers from this table?
+                </div>
+                <div className="text-center text-sm text-red-600 mb-4">
+                  This will free {table.name || table.id} and remove {partySize} customers from the section.
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelDelete}
+                    className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                  >
+                    Keep Customers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDelete}
+                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  >
+                    Remove Customers
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Main action buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!selectedTable || !selectedSection || !partySize || parseInt(partySize, 10) <= 0 || !hasChanges()}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Update Table
+                  </button>
+                </div>
+                
+                {/* Delete button */}
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleDeleteClick}
+                    className="flex-1 bg-red-600 text-white py-4 px-10 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                     <Trash2 size={22} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -315,18 +346,13 @@ export default function GridView({
   onUpdateSection
 }: ViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-  const [confirmationModal, setConfirmationModal] = useState<{
-    isOpen: boolean;
-    table: Table | null;
-  }>({ isOpen: false, table: null });
-  
-  const [moveModal, setMoveModal] = useState<{
-    isOpen: boolean;
-    table: Table | null;
-  }>({ isOpen: false, table: null });
+
+  const [manageModal, setManageModal] = useState<{
+  isOpen: boolean;
+  table: Table | null;
+}>({ isOpen: false, table: null });
 
   
-
   useEffect(() => {
   let isActive = true; // Flag to prevent updates after cleanup
   
@@ -486,90 +512,180 @@ export default function GridView({
   };
 
   // Move customers to another table
-  const moveCustomers = async (sourceTable: Table, targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => {
-    try {
-      // Determine the final section assignment
-      const finalSectionId = keepOriginalSection ? sourceTable.current_section : targetSectionId;
-      const sourceSectionId = sourceTable.current_section;
-      const sourceIsUnassigned = sourceTable.section_id === null;
-      const targetTable = tables.find(t => t.id === targetTableId);
-      const targetIsUnassigned = targetTable?.section_id === null;
-      //to change secton only
-      const isSameTable = sourceTable.id === targetTableId;
-      const isSectionChange = sourceSectionId !== finalSectionId;
+  const moveCustomers = async (sourceTable: Table, targetTableId: string, targetSectionId: string, newPartySize: number) => {
+  try {
+    const sourceSectionId = sourceTable.current_section;
+    const sourceIsUnassigned = sourceTable.section_id === null;
+    const targetTable = tables.find(t => t.id === targetTableId);
+    const targetIsUnassigned = targetTable?.section_id === null;
+    const isSameTable = sourceTable.id === targetTableId;
+    const isSectionChange = sourceSectionId !== targetSectionId;
+    const isPartySizeChange = newPartySize !== sourceTable.current_party_size;
+    const partySizeDifference = newPartySize - sourceTable.current_party_size;
 
-
-      //when changing only section
-      if (isSameTable && isSectionChange) {
-        const { error } = await supabase
-          .from('tables')
-          .update({
-            current_section: finalSectionId
-          })
-          .eq('id', sourceTable.id);
-      
-        if (error) {
-          console.error('Error updating table section:', error);
-          return;
-        }
-      
-        // Mark old service as moved and create new service entry
-        if (onMoveService) {
-          await onMoveService(sourceTable.id);
-        }
-        if (onCreateServiceHistory && finalSectionId) {
-          await onCreateServiceHistory(sourceTable.id, finalSectionId, sourceTable.current_party_size);
-        }
-
-        if (sourceSectionId && finalSectionId && onUpdateSection) {
-          // Subtract from source section
-          const sourceSection = sections.find(s => s.id === sourceSectionId);
-          if (sourceSection) {
-            await supabase
-              .from('sections')
-              .update({
-                customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-              })
-              .eq('id', sourceSectionId);
-      
-            onUpdateSection(sourceSectionId, {
-              customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-            });
-          }
-      
-          // Add to target section
-          const targetSection = sections.find(s => s.id === finalSectionId);
-          if (targetSection) {
-            await supabase
-              .from('sections')
-              .update({
-                customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
-              })
-              .eq('id', finalSectionId);
-      
-            onUpdateSection(finalSectionId, {
-              customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
-            });
-          }
-        }
-      
-        // Update section counts and local state...
-        // (same section count logic as before)
-        
-        
-        console.log(`Changed section assignment for table ${sourceTable.id} from ${sourceSectionId} to ${finalSectionId}`);
+    // Case 1: Only section changed (same table)
+    if (isSameTable && isSectionChange && !isPartySizeChange) {
+      const { error } = await supabase
+        .from('tables')
+        .update({ current_section: targetSectionId })
+        .eq('id', sourceTable.id);
+    
+      if (error) {
+        console.error('Error updating table section:', error);
         return;
       }
-      
-          
+    
+      // Mark old service as moved and create new service entry
+      if (onMoveService) {
+        await onMoveService(sourceTable.id);
+      }
+      if (onCreateServiceHistory && targetSectionId) {
+        await onCreateServiceHistory(sourceTable.id, targetSectionId, sourceTable.current_party_size);
+      }
 
-      // Update source table - remove customers and reset current_section if it's unassigned
+      // Update section counts
+      if (sourceSectionId && targetSectionId && onUpdateSection) {
+        const sourceSection = sections.find(s => s.id === sourceSectionId);
+        if (sourceSection) {
+          await supabase
+            .from('sections')
+            .update({
+              customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+            })
+            .eq('id', sourceSectionId);
+    
+          onUpdateSection(sourceSectionId, {
+            customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+          });
+        }
+    
+        const targetSection = sections.find(s => s.id === targetSectionId);
+        if (targetSection) {
+          await supabase
+            .from('sections')
+            .update({
+              customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+            })
+            .eq('id', targetSectionId);
+    
+          onUpdateSection(targetSectionId, {
+            customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+          });
+        }
+      }
+
+      // Update local table state
+      onUpdateTable(sourceTable.id, { current_section: targetSectionId });
+      
+      console.log(`Changed section assignment for table ${sourceTable.id} from ${sourceSectionId} to ${targetSectionId}`);
+      return;
+    }
+
+    // Case 2: Only party size changed (same table, same section)
+    if (isSameTable && !isSectionChange && isPartySizeChange) {
+      const { error } = await supabase
+        .from('tables')
+        .update({ current_party_size: newPartySize })
+        .eq('id', sourceTable.id);
+
+      if (error) {
+        console.error('Error updating party size:', error);
+        return;
+      }
+
+      // Update section count
+      if (sourceSectionId && onUpdateSection) {
+        const section = sections.find(s => s.id === sourceSectionId);
+        if (section) {
+          const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
+          await supabase
+            .from('sections')
+            .update({ customers_served: newCustomerCount })
+            .eq('id', sourceSectionId);
+
+          onUpdateSection(sourceSectionId, { customers_served: newCustomerCount });
+        }
+      }
+
+      // Update local table state
+      onUpdateTable(sourceTable.id, { current_party_size: newPartySize });
+
+      console.log(`Updated party size for table ${sourceTable.id} from ${sourceTable.current_party_size} to ${newPartySize}`);
+      return;
+    }
+
+    // Case 3: Section AND party size changed (same table)
+    if (isSameTable && isSectionChange && isPartySizeChange) {
+      const { error } = await supabase
+        .from('tables')
+        .update({ 
+          current_section: targetSectionId,
+          current_party_size: newPartySize
+        })
+        .eq('id', sourceTable.id);
+
+      if (error) {
+        console.error('Error updating table:', error);
+        return;
+      }
+
+      // Mark old service as moved and create new service entry
+      if (onMoveService) {
+        await onMoveService(sourceTable.id);
+      }
+      if (onCreateServiceHistory && targetSectionId) {
+        await onCreateServiceHistory(sourceTable.id, targetSectionId, newPartySize);
+      }
+
+      // Update section counts
+      if (sourceSectionId && targetSectionId && onUpdateSection) {
+        const sourceSection = sections.find(s => s.id === sourceSectionId);
+        if (sourceSection) {
+          await supabase
+            .from('sections')
+            .update({
+              customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+            })
+            .eq('id', sourceSectionId);
+
+          onUpdateSection(sourceSectionId, {
+            customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+          });
+        }
+
+        const targetSection = sections.find(s => s.id === targetSectionId);
+        if (targetSection) {
+          await supabase
+            .from('sections')
+            .update({
+              customers_served: (targetSection.customers_served || 0) + newPartySize
+            })
+            .eq('id', targetSectionId);
+
+          onUpdateSection(targetSectionId, {
+            customers_served: (targetSection.customers_served || 0) + newPartySize
+          });
+        }
+      }
+
+      // Update local table state
+      onUpdateTable(sourceTable.id, { 
+        current_section: targetSectionId,
+        current_party_size: newPartySize
+      });
+
+      console.log(`Updated table ${sourceTable.id}: section ${sourceSectionId} → ${targetSectionId}, party size ${sourceTable.current_party_size} → ${newPartySize}`);
+      return;
+    }
+
+    // Case 4: Table changed (move to different table)
+    if (!isSameTable) {
+      // Update source table - free it
       const sourceUpdateData: any = { 
         is_taken: false,
         current_party_size: 0
       };
       
-      // If source is unassigned table, reset current_section to null
       if (sourceIsUnassigned) {
         sourceUpdateData.current_section = null;
       }
@@ -585,13 +701,13 @@ export default function GridView({
         return;
       }
 
-      // Update target table - add customers and set section
+      // Update target table - occupy it
       const { error: targetError } = await supabase
         .from('tables')
         .update({
           is_taken: true,
-          current_party_size: sourceTable.current_party_size,
-          current_section: finalSectionId,
+          current_party_size: newPartySize,
+          current_section: targetSectionId,
           assigned_at: new Date().toISOString()
         })
         .eq('id', targetTableId);
@@ -602,17 +718,16 @@ export default function GridView({
         return;
       }
 
-      // Update service history - mark old service as moved and create new one
+      // Update service history
       if (onMoveService) {
         await onMoveService(sourceTable.id);
       }
-      if (onCreateServiceHistory && finalSectionId) {
-        await onCreateServiceHistory(targetTableId, finalSectionId, sourceTable.current_party_size);
+      if (onCreateServiceHistory && targetSectionId) {
+        await onCreateServiceHistory(targetTableId, targetSectionId, newPartySize);
       }
 
-      // Update section customer counts only if section assignment changed
-      if (sourceSectionId && finalSectionId && sourceSectionId !== finalSectionId && onUpdateSection) {
-        // Subtract from source section
+      // Update section customer counts if section changed
+      if (sourceSectionId && targetSectionId && sourceSectionId !== targetSectionId && onUpdateSection) {
         const sourceSection = sections.find(s => s.id === sourceSectionId);
         if (sourceSection) {
           await supabase
@@ -622,70 +737,71 @@ export default function GridView({
             })
             .eq('id', sourceSectionId);
 
-          // Update local state
           onUpdateSection(sourceSectionId, {
             customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
           });
         }
 
-        // Add to target section
-        const targetSection = sections.find(s => s.id === finalSectionId);
+        const targetSection = sections.find(s => s.id === targetSectionId);
         if (targetSection) {
           await supabase
             .from('sections')
             .update({
-              customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+              customers_served: (targetSection.customers_served || 0) + newPartySize
             })
-            .eq('id', finalSectionId);
+            .eq('id', targetSectionId);
 
-          // Update local state
-          onUpdateSection(finalSectionId, {
-            customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+          onUpdateSection(targetSectionId, {
+            customers_served: (targetSection.customers_served || 0) + newPartySize
           });
+        }
+      } else if (sourceSectionId === targetSectionId && isPartySizeChange && onUpdateSection) {
+        // Same section but different party size
+        const section = sections.find(s => s.id === sourceSectionId);
+        if (section) {
+          const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
+          await supabase
+            .from('sections')
+            .update({ customers_served: newCustomerCount })
+            .eq('id', sourceSectionId);
+
+          onUpdateSection(sourceSectionId, { customers_served: newCustomerCount });
         }
       }
 
+      // Update local table states
+      const sourceLocalUpdate: any = {
+        is_taken: false,
+        current_party_size: 0
+      };
+      
+      if (sourceIsUnassigned) {
+        sourceLocalUpdate.current_section = null;
+      }
+      
+      onUpdateTable(sourceTable.id, sourceLocalUpdate);
+      onUpdateTable(targetTableId, {
+        is_taken: true,
+        current_party_size: newPartySize,
+        current_section: targetSectionId,
+        assigned_at: new Date().toISOString()
+      });
 
-      const sourceType = sourceIsUnassigned ? 'overflow table' : 'section table';
-      const targetType = targetIsUnassigned ? 'overflow table' : 'section table';
-      const actionDescription = keepOriginalSection 
-        ? `moved to different physical table but kept in same section`
-        : `moved to different table and section`;
-
-
-       const sourceLocalUpdate: any = {
-          is_taken: false,
-          current_party_size: 0
-        };
-        
-        if (sourceIsUnassigned) {
-          sourceLocalUpdate.current_section = null;
-        }
-        
-        onUpdateTable(sourceTable.id, sourceLocalUpdate);
-
-        // Update target table locally  
-        onUpdateTable(targetTableId, {
-          is_taken: true,
-          current_party_size: sourceTable.current_party_size,
-          current_section: finalSectionId,
-          assigned_at: new Date().toISOString()
-        });
-
-      console.log(`Successfully ${actionDescription}: ${sourceTable.current_party_size} customers from ${sourceType} ${sourceTable.id} to ${targetType} ${targetTableId} (section: ${finalSectionId})`);
-
-    } catch (error) {
-      console.error('Failed to move customers:', error);
-      alert('An error occurred while moving customers');
+      console.log(`Moved ${newPartySize} customers from ${sourceTable.id} to ${targetTableId} (section: ${targetSectionId})`);
     }
-  };
+
+  } catch (error) {
+    console.error('Failed to move customers:', error);
+    alert('An error occurred while moving customers');
+  }
+};
 
   const handleTableClick = (table: Table) => {
     setSelectedTable(table);
 
     if (table.is_taken) {
       // Show confirmation modal for occupied tables
-      setConfirmationModal({ isOpen: true, table });
+      setManageModal({ isOpen: true, table });
     } else {
       if (user?.strict_assign && table.section_id) {
         if (onTriggerAutoAssign){
@@ -699,28 +815,33 @@ export default function GridView({
     }
   };
 
-  const handleConfirmRemoval = async () => {
-    if (confirmationModal.table) {
-      await toggleTableStatus(confirmationModal.table);
-    }
-    setConfirmationModal({ isOpen: false, table: null });
+  const handleManageTable = async (updatedData: { 
+  targetTableId: string; 
+  targetSectionId: string; 
+  partySize: number;
+}) => {
+  if (!manageModal.table) return;
+  
+  // Call moveCustomers with the updated data
+  await moveCustomers(
+    manageModal.table, 
+    updatedData.targetTableId, 
+    updatedData.targetSectionId,
+    updatedData.partySize
+  );
+  
+  setManageModal({ isOpen: false, table: null });
+};
+
+  const handleDeleteTable = async () => {
+    if (!manageModal.table) return;
+    
+    await toggleTableStatus(manageModal.table);
+    setManageModal({ isOpen: false, table: null });
   };
 
-  const handleShowMove = () => {
-    setMoveModal({ isOpen: true, table: confirmationModal.table });
-    setConfirmationModal({ isOpen: false, table: null });
-  };
-
-  const handleConfirmMove = async (targetTableId: string, targetSectionId: string, keepOriginalSection: boolean) => {
-    if (moveModal.table && targetTableId && targetSectionId) {
-      await moveCustomers(moveModal.table, targetTableId, targetSectionId, keepOriginalSection);
-    }
-    setMoveModal({ isOpen: false, table: null });
-  };
-
-  const handleCancelAction = () => {
-    setConfirmationModal({ isOpen: false, table: null });
-    setMoveModal({ isOpen: false, table: null });
+  const handleCloseManageModal = () => {
+    setManageModal({ isOpen: false, table: null });
   };
 
   // Function to render a single grid cell
@@ -809,29 +930,15 @@ export default function GridView({
           {renderGrid()}
         </div>
       </div>
-
-      {/* Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={confirmationModal.isOpen}
-        tableName={confirmationModal.table?.name || `T${confirmationModal.table?.id?.slice(-2)}` || ''}
-        onConfirm={handleConfirmRemoval}
-        onCancel={handleCancelAction}
-        onMove={handleShowMove}
-      />
-
-      {/* Move Customers Modal */}
-      <MoveCustomersModal
-        isOpen={moveModal.isOpen}
-        sourceTable={moveModal.table}
-        sections={sections}
-        tables={tables}
-        onConfirm={handleConfirmMove}
-        onCancel={handleCancelAction}
-        
-
-        
-
-      />
+       <ManageTableModal
+      isOpen={manageModal.isOpen}
+      table={manageModal.table}
+      sections={sections}
+      tables={tables}
+      onConfirm={handleManageTable}
+      onDelete={handleDeleteTable}
+      onCancel={handleCloseManageModal}
+    />
     </>
   );
 }
