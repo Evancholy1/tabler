@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Layout, Section, Table, ViewProps } from '../types/dashboard';
 import { Trash2 } from 'lucide-react';
+import { X } from 'lucide-react';
 
 
 interface ManageTableModalProps {
@@ -46,7 +47,7 @@ const ManageTableModal = ({
 
   const getAvailableTables = () => {
     return tables.filter(t =>
-      (!t.is_taken || t.id === table?.id) 
+      (!t.is_taken || t.id === table?.id)
     );
   };
 
@@ -119,12 +120,22 @@ const ManageTableModal = ({
     <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b" style={{ backgroundColor: `${currentSection?.color}20` }}>
+        <div className="p-6 border-b relative" style={{ backgroundColor: `${currentSection?.color}20` }}>
           <h3 className="text-xl font-semibold text-gray-900">Manage Table</h3>
           <p className="text-sm text-gray-600 mt-1">
             {table.name || `T${table.id.slice(-2)}`} - {table.current_party_size} {table.current_party_size === 1 ? 'customer' : 'customers'}
           </p>
+
+          {/* ADD THIS X Close Button */}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
+          >
+             <X size={28} />
+          </button>
         </div>
+
 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -233,7 +244,7 @@ const ManageTableModal = ({
 
 
               {/* Summary */}
-              {(selectedTable && selectedSection) && (
+              {(selectedTable && selectedSection && hasChanges()) && (
                 <div className="bg-green-50 p-8 rounded-2xl max-w-[100%] mx-auto">
                   <div className="text-center">
                     {/* Table Assignment */}
@@ -282,7 +293,7 @@ const ManageTableModal = ({
                   <button
                     type="button"
                     onClick={handleConfirmDelete}
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                   >
                     Remove Customers
                   </button>
@@ -290,32 +301,23 @@ const ManageTableModal = ({
               </div>
             ) : (
               <>
-                {/* Main action buttons */}
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!selectedTable || !selectedSection || !partySize || parseInt(partySize, 10) <= 0 || !hasChanges()}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  >
-                    Update Table
-                  </button>
-                </div>
+                {/* Update button - Full width */}
+                <button
+                  type="submit"
+                  disabled={!selectedTable || !selectedSection || !partySize || parseInt(partySize, 10) <= 0 || !hasChanges()}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Update Table
+                </button>
 
                 {/* Delete button */}
                 <div className="flex justify-center">
                   <button
                     type="button"
-                    onClick={handleConfirmDelete}
-                    className="flex-1 bg-red-600 text-white py-4 px-10 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                    onClick={onDelete}
+                    className="flex-1 bg-red-600 text-white py-4 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
                   >
-                    <Trash2 size={22} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </>

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { ViewProps, Section, Table } from '../types/dashboard';
 import { Trash2 } from 'lucide-react';
+import { X } from 'lucide-react';
 
 // Use the same interface as RestaurantDashboard
 interface ServiceHistoryEntry {
@@ -258,8 +259,16 @@ return (
     <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b" style={{ backgroundColor: `${currentSection?.color}20` }}>
+        <div className="p-6 border-b relative" style={{ backgroundColor: `${currentSection?.color}20` }}>
           <h3 className="text-xl font-semibold text-gray-900">Edit Service Entry</h3>
+
+           <button
+            type="button"
+            onClick={onCancel}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
+          >
+             <X size={28} />
+          </button>
         </div>
 
         {/* Content */}
@@ -401,13 +410,6 @@ return (
               <>
                 {/* Main action buttons */}
                 <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
                   <button
                     type="submit"
                     disabled={!selectedTable || !selectedSection || !partySize || parseInt(partySize, 10) <= 0 || !hasChanges()}
