@@ -13,23 +13,23 @@ interface ManageTableModalProps {
   table: Table | null;
   sections: Section[];
   tables: Table[];
-  onConfirm: (updatedData: { 
-    targetTableId: string; 
-    targetSectionId: string; 
+  onConfirm: (updatedData: {
+    targetTableId: string;
+    targetSectionId: string;
     partySize: number;
   }) => void;
   onDelete: () => void;
   onCancel: () => void;
 }
 
-const ManageTableModal = ({ 
-  isOpen, 
-  table, 
-  sections, 
-  tables, 
-  onConfirm, 
-  onDelete, 
-  onCancel 
+const ManageTableModal = ({
+  isOpen,
+  table,
+  sections,
+  tables,
+  onConfirm,
+  onDelete,
+  onCancel
 }: ManageTableModalProps) => {
   const [selectedTable, setSelectedTable] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -45,7 +45,7 @@ const ManageTableModal = ({
   };
 
   const getAvailableTables = () => {
-    return tables.filter(t => 
+    return tables.filter(t =>
       (!t.is_taken || t.id === table?.id) &&
       (t.capacity || 4) >= parseInt(partySize, 10)
     );
@@ -171,13 +171,13 @@ const ManageTableModal = ({
                   {sections.map(section => {
                     const sectionTables = availableTables.filter(t => t.section_id === section.id);
                     if (sectionTables.length === 0) return null;
-                    
+
                     return (
                       <optgroup key={section.id} label={`${section.name} Tables`}>
                         {sectionTables.map(t => (
                           <option key={t.id} value={t.id}>
                             {t.name || t.id}
-                    
+
                           </option>
                         ))}
                       </optgroup>
@@ -188,7 +188,7 @@ const ManageTableModal = ({
                   {(() => {
                     const unassignedTables = availableTables.filter(t => t.section_id === null);
                     if (unassignedTables.length === 0) return null;
-                    
+
                     return (
                       <optgroup label="🚨 Overflow Tables (Unassigned)">
                         {unassignedTables.map(t => (
@@ -208,7 +208,7 @@ const ManageTableModal = ({
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Number of Customers
                 </label>
-                
+
                 <div className="flex items-center justify-center space-x-4">
                   <button
                     type="button"
@@ -217,7 +217,7 @@ const ManageTableModal = ({
                   >
                     −
                   </button>
-                  
+
                   <input
                     type="number"
                     value={partySize}
@@ -225,7 +225,7 @@ const ManageTableModal = ({
                     min="1"
                     className="w-24 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none"
                   />
-                  
+
                   <button
                     type="button"
                     onClick={handlePartySizeIncrement}
@@ -237,33 +237,33 @@ const ManageTableModal = ({
               </div>
 
 
-            {/* Summary */}
-            {(selectedTable && selectedSection) && (
-              <div className="bg-green-50 p-8 rounded-2xl max-w-[100%] mx-auto">
-                <div className="text-center">
-                  {/* Table Assignment */}
-                  <div className="text-5xl font-bold text-black mb-4 whitespace-nowrap">
-                    {table.name || table.id} → {selectedTableData?.name || selectedTable}
-                  </div>
-                  
-                  {/* Overflow table indicator */}
-                  {selectedTableData?.section_id === null && (
-                    <div className="text-2xl font-bold text-orange-600 mb-2">
-                      🚨 OVERFLOW TABLE
+              {/* Summary */}
+              {(selectedTable && selectedSection) && (
+                <div className="bg-green-50 p-8 rounded-2xl max-w-[100%] mx-auto">
+                  <div className="text-center">
+                    {/* Table Assignment */}
+                    <div className="text-5xl font-bold text-black mb-4 whitespace-nowrap">
+                      {table.name || table.id} → {selectedTableData?.name || selectedTable}
                     </div>
-                  )}
-                  
-                  {/* Section and Customer Count Change */}
-                  <div className="text-4xl font-bold text-green-600 mb-4">
-                    {currentSection?.name}:{currentSection?.customers_served || 0} → {selectedSectionData?.name}:{(selectedSectionData?.customers_served || 0) + (isSameSection ? parseInt(partySize, 10) - table.current_party_size : parseInt(partySize, 10))}
+
+                    {/* Overflow table indicator */}
+                    {selectedTableData?.section_id === null && (
+                      <div className="text-2xl font-bold text-orange-600 mb-2">
+                        🚨 OVERFLOW TABLE
+                      </div>
+                    )}
+
+                    {/* Section and Customer Count Change */}
+                    <div className="text-4xl font-bold text-green-600 mb-4">
+                      {currentSection?.name}:{currentSection?.customers_served || 0} → {selectedSectionData?.name}:{(selectedSectionData?.customers_served || 0) + (isSameSection ? parseInt(partySize, 10) - table.current_party_size : parseInt(partySize, 10))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
             </>
           )}
 
-          
+
 
           {/* Buttons */}
           <div className="space-y-3">
@@ -312,7 +312,7 @@ const ManageTableModal = ({
                     Update Table
                   </button>
                 </div>
-                
+
                 {/* Delete button */}
                 <div className="flex justify-center">
                   <button
@@ -320,7 +320,7 @@ const ManageTableModal = ({
                     onClick={handleConfirmDelete}
                     className="flex-1 bg-red-600 text-white py-4 px-10 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                   >
-                     <Trash2 size={22} />
+                    <Trash2 size={22} />
                   </button>
                 </div>
               </>
@@ -332,9 +332,9 @@ const ManageTableModal = ({
   );
 };
 
-export default function GridView({ 
-  layout, 
-  sections, 
+export default function GridView({
+  layout,
+  sections,
   tables,
   partySize,
   user,
@@ -348,115 +348,115 @@ export default function GridView({
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
   const [manageModal, setManageModal] = useState<{
-  isOpen: boolean;
-  table: Table | null;
-}>({ isOpen: false, table: null });
+    isOpen: boolean;
+    table: Table | null;
+  }>({ isOpen: false, table: null });
 
-  
+
   useEffect(() => {
-  let isActive = true; // Flag to prevent updates after cleanup
-  
-  const createSubscriptions = () => {
-    if (!isActive) return null;
-    
-    console.log('🔄 Creating realtime subscriptions...');
-    
-    const tablesSubscription = supabase
-      .channel(`tables-changes-${Date.now()}`) // Unique channel name
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public', 
-        table: 'tables'
-      }, (payload) => {
-        if (!isActive) return; // Ignore if component unmounted
-        
-        console.log('🔥 Table change detected:', payload);
-        
-        if (payload.eventType === 'UPDATE') {
-          const updatedTable = payload.new as Table;
-          
-          onUpdateTable(updatedTable.id, {
-            is_taken: updatedTable.is_taken,
-            current_party_size: updatedTable.current_party_size,
-            current_section: updatedTable.current_section,
-            assigned_at: updatedTable.assigned_at
-          });
-          
-          console.log(`✅ Table ${updatedTable.id} updated via realtime`);
-        }
-        
-        if (payload.eventType === 'INSERT') {
-          console.log('➕ New table added:', payload.new);
-        }
-        
-        if (payload.eventType === 'DELETE') {
-          console.log('🗑️ Table deleted:', payload.old);
-        }
-      })
-      .subscribe((status, err) => {
-        console.log('📡 Tables subscription status:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log(' Tables subscription active');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(' Tables subscription error:', err);
-        } else if (status === 'TIMED_OUT') {
-          console.warn('⏰ Tables subscription timed out');
-        } else if (status === 'CLOSED') {
-          console.warn('🔒 Tables subscription closed');
-        }
-      });
+    let isActive = true; // Flag to prevent updates after cleanup
 
-    const sectionsSubscription = supabase
-      .channel(`sections-changes-${Date.now()}`) // Unique channel name
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'sections'
-      }, (payload) => {
-        if (!isActive) return; // Ignore if component unmounted
-        
-        console.log(' Section change detected:', payload);
-        const updatedSection = payload.new as Section;
-        
-        if (onUpdateSection) {
-          onUpdateSection(updatedSection.id, {
-            customers_served: updatedSection.customers_served
-          });
-        }
-      })
-      .subscribe((status, err) => {
-        console.log('📡 Sections subscription status:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('Sections subscription active');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(' Sections subscription error:', err);
-        }
-      });
+    const createSubscriptions = () => {
+      if (!isActive) return null;
 
-    return { tablesSubscription, sectionsSubscription };
-  };
+      console.log('🔄 Creating realtime subscriptions...');
 
-  // Create initial subscriptions
-  const subscriptions = createSubscriptions();
-  
-  // Cleanup function
-  return () => {
-    isActive = false; // Prevent any pending updates
-    console.log('🧹 Cleaning up realtime subscriptions');
-    
-    if (subscriptions) {
-      try {
-        supabase.removeChannel(subscriptions.tablesSubscription);
-        supabase.removeChannel(subscriptions.sectionsSubscription);
-        console.log('✅ Subscriptions cleaned up successfully');
-      } catch (error) {
-        console.warn('⚠️ Error during cleanup:', error);
+      const tablesSubscription = supabase
+        .channel(`tables-changes-${Date.now()}`) // Unique channel name
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'tables'
+        }, (payload) => {
+          if (!isActive) return; // Ignore if component unmounted
+
+          console.log('🔥 Table change detected:', payload);
+
+          if (payload.eventType === 'UPDATE') {
+            const updatedTable = payload.new as Table;
+
+            onUpdateTable(updatedTable.id, {
+              is_taken: updatedTable.is_taken,
+              current_party_size: updatedTable.current_party_size,
+              current_section: updatedTable.current_section,
+              assigned_at: updatedTable.assigned_at
+            });
+
+            console.log(`✅ Table ${updatedTable.id} updated via realtime`);
+          }
+
+          if (payload.eventType === 'INSERT') {
+            console.log('➕ New table added:', payload.new);
+          }
+
+          if (payload.eventType === 'DELETE') {
+            console.log('🗑️ Table deleted:', payload.old);
+          }
+        })
+        .subscribe((status, err) => {
+          console.log('📡 Tables subscription status:', status);
+
+          if (status === 'SUBSCRIBED') {
+            console.log(' Tables subscription active');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(' Tables subscription error:', err);
+          } else if (status === 'TIMED_OUT') {
+            console.warn('⏰ Tables subscription timed out');
+          } else if (status === 'CLOSED') {
+            console.warn('🔒 Tables subscription closed');
+          }
+        });
+
+      const sectionsSubscription = supabase
+        .channel(`sections-changes-${Date.now()}`) // Unique channel name
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sections'
+        }, (payload) => {
+          if (!isActive) return; // Ignore if component unmounted
+
+          console.log(' Section change detected:', payload);
+          const updatedSection = payload.new as Section;
+
+          if (onUpdateSection) {
+            onUpdateSection(updatedSection.id, {
+              customers_served: updatedSection.customers_served
+            });
+          }
+        })
+        .subscribe((status, err) => {
+          console.log('📡 Sections subscription status:', status);
+
+          if (status === 'SUBSCRIBED') {
+            console.log('Sections subscription active');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(' Sections subscription error:', err);
+          }
+        });
+
+      return { tablesSubscription, sectionsSubscription };
+    };
+
+    // Create initial subscriptions
+    const subscriptions = createSubscriptions();
+
+    // Cleanup function
+    return () => {
+      isActive = false; // Prevent any pending updates
+      console.log('🧹 Cleaning up realtime subscriptions');
+
+      if (subscriptions) {
+        try {
+          supabase.removeChannel(subscriptions.tablesSubscription);
+          supabase.removeChannel(subscriptions.sectionsSubscription);
+          console.log('✅ Subscriptions cleaned up successfully');
+        } catch (error) {
+          console.warn('⚠️ Error during cleanup:', error);
+        }
       }
-    }
-  };
-}, []); 
+    };
+  }, []);
 
   // Function to get table at specific position
   const getTableAt = (x: number, y: number): Table | undefined => {
@@ -475,12 +475,12 @@ export default function GridView({
       }
       return '#ffffff';
     }
-    
+
     if (table.current_section && sections) {
       const section = sections.find(s => s.id === table.current_section);
       return section?.color || '#f3f4f6';
     }
-    
+
     return '#f3f4f6';
   };
 
@@ -502,8 +502,8 @@ export default function GridView({
       }
 
       onUpdateTable(table.id, {
-      is_taken: false,
-      current_party_size: 0
+        is_taken: false,
+        current_party_size: 0
       });
 
     } catch (error) {
@@ -513,288 +513,296 @@ export default function GridView({
 
   // Move customers to another table
   const moveCustomers = async (sourceTable: Table, targetTableId: string, targetSectionId: string, newPartySize: number) => {
-  try {
-    const sourceSectionId = sourceTable.current_section;
-    const sourceIsUnassigned = sourceTable.section_id === null;
-    const targetTable = tables.find(t => t.id === targetTableId);
-    const targetIsUnassigned = targetTable?.section_id === null;
-    const isSameTable = sourceTable.id === targetTableId;
-    const isSectionChange = sourceSectionId !== targetSectionId;
-    const isPartySizeChange = newPartySize !== sourceTable.current_party_size;
-    const partySizeDifference = newPartySize - sourceTable.current_party_size;
+    try {
+      const sourceSectionId = sourceTable.current_section;
+      const sourceIsUnassigned = sourceTable.section_id === null;
+      const targetTable = tables.find(t => t.id === targetTableId);
+      const targetIsUnassigned = targetTable?.section_id === null;
+      const isSameTable = sourceTable.id === targetTableId;
+      const isSectionChange = sourceSectionId !== targetSectionId;
+      const isPartySizeChange = newPartySize !== sourceTable.current_party_size;
+      const partySizeDifference = newPartySize - sourceTable.current_party_size;
 
-    // Case 1: Only section changed (same table)
-    if (isSameTable && isSectionChange && !isPartySizeChange) {
-      const { error } = await supabase
-        .from('tables')
-        .update({ current_section: targetSectionId })
-        .eq('id', sourceTable.id);
-    
-      if (error) {
-        console.error('Error updating table section:', error);
-        return;
-      }
-    
-      // Mark old service as moved and create new service entry
-      if (onMoveService) {
-        await onMoveService(sourceTable.id);
-      }
-      if (onCreateServiceHistory && targetSectionId) {
-        await onCreateServiceHistory(sourceTable.id, targetSectionId, sourceTable.current_party_size);
-      }
+      // Case 1: Only section changed (same table)
+      if (isSameTable && isSectionChange && !isPartySizeChange) {
+        const { error } = await supabase
+          .from('tables')
+          .update({ current_section: targetSectionId })
+          .eq('id', sourceTable.id);
 
-      // Update section counts
-      if (sourceSectionId && targetSectionId && onUpdateSection) {
-        const sourceSection = sections.find(s => s.id === sourceSectionId);
-        if (sourceSection) {
-          await supabase
-            .from('sections')
-            .update({
+        if (error) {
+          console.error('Error updating table section:', error);
+          return;
+        }
+
+        // Mark old service as moved and create new service entry
+        if (onMoveService) {
+          await onMoveService(sourceTable.id);
+        }
+        if (onCreateServiceHistory && targetSectionId) {
+          await onCreateServiceHistory(sourceTable.id, targetSectionId, sourceTable.current_party_size);
+        }
+
+        // Update section counts
+        if (sourceSectionId && targetSectionId && onUpdateSection) {
+          const sourceSection = sections.find(s => s.id === sourceSectionId);
+          if (sourceSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+              })
+              .eq('id', sourceSectionId);
+
+            onUpdateSection(sourceSectionId, {
               customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-            })
-            .eq('id', sourceSectionId);
-    
-          onUpdateSection(sourceSectionId, {
-            customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-          });
-        }
-    
-        const targetSection = sections.find(s => s.id === targetSectionId);
-        if (targetSection) {
-          await supabase
-            .from('sections')
-            .update({
+            });
+          }
+
+          const targetSection = sections.find(s => s.id === targetSectionId);
+          if (targetSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
+              })
+              .eq('id', targetSectionId);
+
+            onUpdateSection(targetSectionId, {
               customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
-            })
-            .eq('id', targetSectionId);
-    
-          onUpdateSection(targetSectionId, {
-            customers_served: (targetSection.customers_served || 0) + sourceTable.current_party_size
-          });
+            });
+          }
         }
-      }
 
-      // Update local table state
-      onUpdateTable(sourceTable.id, { current_section: targetSectionId });
-      
-      console.log(`Changed section assignment for table ${sourceTable.id} from ${sourceSectionId} to ${targetSectionId}`);
-      return;
-    }
+        // Update local table state
+        onUpdateTable(sourceTable.id, { current_section: targetSectionId });
 
-    // Case 2: Only party size changed (same table, same section)
-    if (isSameTable && !isSectionChange && isPartySizeChange) {
-      const { error } = await supabase
-        .from('tables')
-        .update({ current_party_size: newPartySize })
-        .eq('id', sourceTable.id);
-
-      if (error) {
-        console.error('Error updating party size:', error);
+        console.log(`Changed section assignment for table ${sourceTable.id} from ${sourceSectionId} to ${targetSectionId}`);
         return;
       }
 
-      // Update section count
-      if (sourceSectionId && onUpdateSection) {
-        const section = sections.find(s => s.id === sourceSectionId);
-        if (section) {
-          const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
-          await supabase
-            .from('sections')
-            .update({ customers_served: newCustomerCount })
-            .eq('id', sourceSectionId);
+      // Case 2: Only party size changed (same table, same section)
+      if (isSameTable && !isSectionChange && isPartySizeChange) {
+        const { error } = await supabase
+          .from('tables')
+          .update({ current_party_size: newPartySize })
+          .eq('id', sourceTable.id);
 
-          onUpdateSection(sourceSectionId, { customers_served: newCustomerCount });
+        if (error) {
+          console.error('Error updating party size:', error);
+          return;
         }
+
+        if (onMoveService) {
+          await onMoveService(sourceTable.id);
+        }
+        if (onCreateServiceHistory && sourceSectionId) {
+          await onCreateServiceHistory(sourceTable.id, sourceSectionId, newPartySize);
+        }
+
+
+        // Update section count
+        if (sourceSectionId && onUpdateSection) {
+          const section = sections.find(s => s.id === sourceSectionId);
+          if (section) {
+            const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
+            await supabase
+              .from('sections')
+              .update({ customers_served: newCustomerCount })
+              .eq('id', sourceSectionId);
+
+            onUpdateSection(sourceSectionId, { customers_served: newCustomerCount });
+          }
+        }
+
+        // Update local table state
+        onUpdateTable(sourceTable.id, { current_party_size: newPartySize });
+
+        console.log(`Updated party size for table ${sourceTable.id} from ${sourceTable.current_party_size} to ${newPartySize}`);
+        return;
       }
 
-      // Update local table state
-      onUpdateTable(sourceTable.id, { current_party_size: newPartySize });
+      // Case 3: Section AND party size changed (same table)
+      if (isSameTable && isSectionChange && isPartySizeChange) {
+        const { error } = await supabase
+          .from('tables')
+          .update({
+            current_section: targetSectionId,
+            current_party_size: newPartySize
+          })
+          .eq('id', sourceTable.id);
 
-      console.log(`Updated party size for table ${sourceTable.id} from ${sourceTable.current_party_size} to ${newPartySize}`);
-      return;
-    }
+        if (error) {
+          console.error('Error updating table:', error);
+          return;
+        }
 
-    // Case 3: Section AND party size changed (same table)
-    if (isSameTable && isSectionChange && isPartySizeChange) {
-      const { error } = await supabase
-        .from('tables')
-        .update({ 
+        // Mark old service as moved and create new service entry
+        if (onMoveService) {
+          await onMoveService(sourceTable.id);
+        }
+        if (onCreateServiceHistory && targetSectionId) {
+          await onCreateServiceHistory(sourceTable.id, targetSectionId, newPartySize);
+        }
+
+        // Update section counts
+        if (sourceSectionId && targetSectionId && onUpdateSection) {
+          const sourceSection = sections.find(s => s.id === sourceSectionId);
+          if (sourceSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+              })
+              .eq('id', sourceSectionId);
+
+            onUpdateSection(sourceSectionId, {
+              customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+            });
+          }
+
+          const targetSection = sections.find(s => s.id === targetSectionId);
+          if (targetSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: (targetSection.customers_served || 0) + newPartySize
+              })
+              .eq('id', targetSectionId);
+
+            onUpdateSection(targetSectionId, {
+              customers_served: (targetSection.customers_served || 0) + newPartySize
+            });
+          }
+        }
+
+        // Update local table state
+        onUpdateTable(sourceTable.id, {
           current_section: targetSectionId,
           current_party_size: newPartySize
-        })
-        .eq('id', sourceTable.id);
+        });
 
-      if (error) {
-        console.error('Error updating table:', error);
+        console.log(`Updated table ${sourceTable.id}: section ${sourceSectionId} → ${targetSectionId}, party size ${sourceTable.current_party_size} → ${newPartySize}`);
         return;
       }
 
-      // Mark old service as moved and create new service entry
-      if (onMoveService) {
-        await onMoveService(sourceTable.id);
-      }
-      if (onCreateServiceHistory && targetSectionId) {
-        await onCreateServiceHistory(sourceTable.id, targetSectionId, newPartySize);
-      }
+      // Case 4: Table changed (move to different table)
+      if (!isSameTable) {
+        // Update source table - free it
+        const sourceUpdateData: any = {
+          is_taken: false,
+          current_party_size: 0
+        };
 
-      // Update section counts
-      if (sourceSectionId && targetSectionId && onUpdateSection) {
-        const sourceSection = sections.find(s => s.id === sourceSectionId);
-        if (sourceSection) {
-          await supabase
-            .from('sections')
-            .update({
+        if (sourceIsUnassigned) {
+          sourceUpdateData.current_section = null;
+        }
+
+        const { error: sourceError } = await supabase
+          .from('tables')
+          .update(sourceUpdateData)
+          .eq('id', sourceTable.id);
+
+        if (sourceError) {
+          console.error('Error updating source table:', sourceError);
+          alert('Failed to update source table');
+          return;
+        }
+
+        // Update target table - occupy it
+        const { error: targetError } = await supabase
+          .from('tables')
+          .update({
+            is_taken: true,
+            current_party_size: newPartySize,
+            current_section: targetSectionId,
+            assigned_at: new Date().toISOString()
+          })
+          .eq('id', targetTableId);
+
+        if (targetError) {
+          console.error('Error updating target table:', targetError);
+          alert('Failed to update target table');
+          return;
+        }
+
+        // Update service history
+        if (onMoveService) {
+          await onMoveService(sourceTable.id);
+        }
+        if (onCreateServiceHistory && targetSectionId) {
+          await onCreateServiceHistory(targetTableId, targetSectionId, newPartySize);
+        }
+
+        // Update section customer counts if section changed
+        if (sourceSectionId && targetSectionId && sourceSectionId !== targetSectionId && onUpdateSection) {
+          const sourceSection = sections.find(s => s.id === sourceSectionId);
+          if (sourceSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
+              })
+              .eq('id', sourceSectionId);
+
+            onUpdateSection(sourceSectionId, {
               customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-            })
-            .eq('id', sourceSectionId);
+            });
+          }
 
-          onUpdateSection(sourceSectionId, {
-            customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-          });
-        }
+          const targetSection = sections.find(s => s.id === targetSectionId);
+          if (targetSection) {
+            await supabase
+              .from('sections')
+              .update({
+                customers_served: (targetSection.customers_served || 0) + newPartySize
+              })
+              .eq('id', targetSectionId);
 
-        const targetSection = sections.find(s => s.id === targetSectionId);
-        if (targetSection) {
-          await supabase
-            .from('sections')
-            .update({
+            onUpdateSection(targetSectionId, {
               customers_served: (targetSection.customers_served || 0) + newPartySize
-            })
-            .eq('id', targetSectionId);
+            });
+          }
+        } else if (sourceSectionId === targetSectionId && isPartySizeChange && onUpdateSection) {
+          // Same section but different party size
+          const section = sections.find(s => s.id === sourceSectionId);
+          if (section) {
+            const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
+            await supabase
+              .from('sections')
+              .update({ customers_served: newCustomerCount })
+              .eq('id', sourceSectionId);
 
-          onUpdateSection(targetSectionId, {
-            customers_served: (targetSection.customers_served || 0) + newPartySize
-          });
+            onUpdateSection(sourceSectionId, { customers_served: newCustomerCount });
+          }
         }
-      }
 
-      // Update local table state
-      onUpdateTable(sourceTable.id, { 
-        current_section: targetSectionId,
-        current_party_size: newPartySize
-      });
+        // Update local table states
+        const sourceLocalUpdate: any = {
+          is_taken: false,
+          current_party_size: 0
+        };
 
-      console.log(`Updated table ${sourceTable.id}: section ${sourceSectionId} → ${targetSectionId}, party size ${sourceTable.current_party_size} → ${newPartySize}`);
-      return;
-    }
+        if (sourceIsUnassigned) {
+          sourceLocalUpdate.current_section = null;
+        }
 
-    // Case 4: Table changed (move to different table)
-    if (!isSameTable) {
-      // Update source table - free it
-      const sourceUpdateData: any = { 
-        is_taken: false,
-        current_party_size: 0
-      };
-      
-      if (sourceIsUnassigned) {
-        sourceUpdateData.current_section = null;
-      }
-
-      const { error: sourceError } = await supabase
-        .from('tables')
-        .update(sourceUpdateData)
-        .eq('id', sourceTable.id);
-
-      if (sourceError) {
-        console.error('Error updating source table:', sourceError);
-        alert('Failed to update source table');
-        return;
-      }
-
-      // Update target table - occupy it
-      const { error: targetError } = await supabase
-        .from('tables')
-        .update({
+        onUpdateTable(sourceTable.id, sourceLocalUpdate);
+        onUpdateTable(targetTableId, {
           is_taken: true,
           current_party_size: newPartySize,
           current_section: targetSectionId,
           assigned_at: new Date().toISOString()
-        })
-        .eq('id', targetTableId);
+        });
 
-      if (targetError) {
-        console.error('Error updating target table:', targetError);
-        alert('Failed to update target table');
-        return;
+        console.log(`Moved ${newPartySize} customers from ${sourceTable.id} to ${targetTableId} (section: ${targetSectionId})`);
       }
 
-      // Update service history
-      if (onMoveService) {
-        await onMoveService(sourceTable.id);
-      }
-      if (onCreateServiceHistory && targetSectionId) {
-        await onCreateServiceHistory(targetTableId, targetSectionId, newPartySize);
-      }
-
-      // Update section customer counts if section changed
-      if (sourceSectionId && targetSectionId && sourceSectionId !== targetSectionId && onUpdateSection) {
-        const sourceSection = sections.find(s => s.id === sourceSectionId);
-        if (sourceSection) {
-          await supabase
-            .from('sections')
-            .update({
-              customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-            })
-            .eq('id', sourceSectionId);
-
-          onUpdateSection(sourceSectionId, {
-            customers_served: Math.max(0, (sourceSection.customers_served || 0) - sourceTable.current_party_size)
-          });
-        }
-
-        const targetSection = sections.find(s => s.id === targetSectionId);
-        if (targetSection) {
-          await supabase
-            .from('sections')
-            .update({
-              customers_served: (targetSection.customers_served || 0) + newPartySize
-            })
-            .eq('id', targetSectionId);
-
-          onUpdateSection(targetSectionId, {
-            customers_served: (targetSection.customers_served || 0) + newPartySize
-          });
-        }
-      } else if (sourceSectionId === targetSectionId && isPartySizeChange && onUpdateSection) {
-        // Same section but different party size
-        const section = sections.find(s => s.id === sourceSectionId);
-        if (section) {
-          const newCustomerCount = Math.max(0, (section.customers_served || 0) + partySizeDifference);
-          await supabase
-            .from('sections')
-            .update({ customers_served: newCustomerCount })
-            .eq('id', sourceSectionId);
-
-          onUpdateSection(sourceSectionId, { customers_served: newCustomerCount });
-        }
-      }
-
-      // Update local table states
-      const sourceLocalUpdate: any = {
-        is_taken: false,
-        current_party_size: 0
-      };
-      
-      if (sourceIsUnassigned) {
-        sourceLocalUpdate.current_section = null;
-      }
-      
-      onUpdateTable(sourceTable.id, sourceLocalUpdate);
-      onUpdateTable(targetTableId, {
-        is_taken: true,
-        current_party_size: newPartySize,
-        current_section: targetSectionId,
-        assigned_at: new Date().toISOString()
-      });
-
-      console.log(`Moved ${newPartySize} customers from ${sourceTable.id} to ${targetTableId} (section: ${targetSectionId})`);
+    } catch (error) {
+      console.error('Failed to move customers:', error);
+      alert('An error occurred while moving customers');
     }
-
-  } catch (error) {
-    console.error('Failed to move customers:', error);
-    alert('An error occurred while moving customers');
-  }
-};
+  };
 
   const handleTableClick = (table: Table) => {
     setSelectedTable(table);
@@ -804,38 +812,38 @@ export default function GridView({
       setManageModal({ isOpen: true, table });
     } else {
       if (user?.strict_assign && table.section_id) {
-        if (onTriggerAutoAssign){
+        if (onTriggerAutoAssign) {
           onTriggerAutoAssign(table.id, table.section_id);
         }
       } else {
         if (onTriggerAutoAssign) {
-        onTriggerAutoAssign(table.id);
-      }
+          onTriggerAutoAssign(table.id);
+        }
       }
     }
   };
 
-  const handleManageTable = async (updatedData: { 
-  targetTableId: string; 
-  targetSectionId: string; 
-  partySize: number;
-}) => {
-  if (!manageModal.table) return;
-  
-  // Call moveCustomers with the updated data
-  await moveCustomers(
-    manageModal.table, 
-    updatedData.targetTableId, 
-    updatedData.targetSectionId,
-    updatedData.partySize
-  );
-  
-  setManageModal({ isOpen: false, table: null });
-};
+  const handleManageTable = async (updatedData: {
+    targetTableId: string;
+    targetSectionId: string;
+    partySize: number;
+  }) => {
+    if (!manageModal.table) return;
+
+    // Call moveCustomers with the updated data
+    await moveCustomers(
+      manageModal.table,
+      updatedData.targetTableId,
+      updatedData.targetSectionId,
+      updatedData.partySize
+    );
+
+    setManageModal({ isOpen: false, table: null });
+  };
 
   const handleDeleteTable = async () => {
     if (!manageModal.table) return;
-    
+
     await toggleTableStatus(manageModal.table);
     setManageModal({ isOpen: false, table: null });
   };
@@ -847,12 +855,12 @@ export default function GridView({
   // Function to render a single grid cell
   const renderCell = (x: number, y: number) => {
     const table = getTableAt(x, y);
-    
+
     if (table) {
-      const displayName = table.name || `T${table.id.slice(-2)}`; 
+      const displayName = table.name || `T${table.id.slice(-2)}`;
       const backgroundColor = getSectionColor(table);
       const isSelected = selectedTable?.id === table.id;
-  
+
       return (
         <div
           key={`${x}-${y}`}
@@ -864,7 +872,7 @@ export default function GridView({
             ${table.section_id === null ? 'ring-2 ring-orange-400 ring-opacity-50' : ''} // Visual indicator for unassigned tables
             hover:shadow-md
           `}
-          style={{ 
+          style={{
             backgroundColor
           }}
           onClick={() => handleTableClick(table)}
@@ -873,7 +881,7 @@ export default function GridView({
           <span className="text-xs sm:text-sm md:text-base font-bold text-center leading-tight text-black truncate px-1">
             {displayName}
           </span>
-          
+
           {table.is_taken && table.current_party_size > 0 && (
             <span className="text-xs text-gray-700 leading-none mt-1">
               {table.current_party_size}
@@ -891,17 +899,17 @@ export default function GridView({
       );
     }
   };
-  
+
   // Render the grid
   const renderGrid = () => {
     const cells = [];
-    
+
     for (let y = 1; y <= layout.height; y++) {
       for (let x = 1; x <= layout.width; x++) {
         cells.push(renderCell(x, y));
       }
     }
-    
+
     return cells;
   };
 
@@ -917,9 +925,9 @@ export default function GridView({
     <>
       <div className="bg-white p-4 rounded-lg shadow w-full max-w-[90vw] flex items-center justify-center">
         {/* Main Grid Container */}
-        <div 
+        <div
           className="grid gap-2 max-w-full max-h-[60vh]"
-          style={{ 
+          style={{
             gridTemplateColumns: `repeat(${layout.width}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${layout.height}, minmax(0, 1fr))`,
             aspectRatio: `${layout.width} / ${layout.height}`,
@@ -930,15 +938,15 @@ export default function GridView({
           {renderGrid()}
         </div>
       </div>
-       <ManageTableModal
-      isOpen={manageModal.isOpen}
-      table={manageModal.table}
-      sections={sections}
-      tables={tables}
-      onConfirm={handleManageTable}
-      onDelete={handleDeleteTable}
-      onCancel={handleCloseManageModal}
-    />
+      <ManageTableModal
+        isOpen={manageModal.isOpen}
+        table={manageModal.table}
+        sections={sections}
+        tables={tables}
+        onConfirm={handleManageTable}
+        onDelete={handleDeleteTable}
+        onCancel={handleCloseManageModal}
+      />
     </>
   );
 }
