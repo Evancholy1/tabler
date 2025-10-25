@@ -422,7 +422,7 @@ return (
                   <button
                     type="button"
                     onClick={handleDeleteClick}
-                    className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
+                    className="flex-1 bg-red-600 text-white py-4 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
                   > 
                     <Trash2 size={16} />
                   </button>

@@ -250,7 +250,7 @@ const ManageTableModal = ({
 
                     {/* Section and Customer Count Change */}
                     <div className="text-4xl font-bold text-green-600 mb-4">
-                      {currentSection?.name}:{currentSection?.customers_served || 0} → {selectedSectionData?.name}:{(selectedSectionData?.customers_served || 0) + (isSameSection ? parseInt(partySize, 10) - table.current_party_size : parseInt(partySize, 10))}
+                      {currentSection?.name} → {selectedSectionData?.name}
                     </div>
                   </div>
                 </div>
