@@ -46,17 +46,12 @@ const ManageTableModal = ({
 
   const getAvailableTables = () => {
     return tables.filter(t =>
-      (!t.is_taken || t.id === table?.id) &&
-      (t.capacity || 4) >= parseInt(partySize, 10)
+      (!t.is_taken || t.id === table?.id) 
     );
   };
 
   const handleTableChange = (tableId: string) => {
     setSelectedTable(tableId);
-    const selectedTableData = tables.find(t => t.id === tableId);
-    if (selectedTableData?.section_id) {
-      setSelectedSection(selectedTableData.section_id);
-    }
   };
 
   const handleSectionChange = (sectionId: string) => {
