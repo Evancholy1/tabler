@@ -104,6 +104,9 @@ export default function RestaurantDashboard({
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedTable, setSelectedTable] = useState('');
 
+  const [strictAssign, setStrictAssign] = useState(false);
+  const [updatingStrictAssign, setUpdatingStrictAssign] = useState(false);
+
 
   const [nextPersonInfo, setNextPersonInfo] = useState <{
     sectionName: string;
@@ -129,6 +132,71 @@ export default function RestaurantDashboard({
   const selectedSectionData = sections.find(s => s.id === selectedSection);
   const sectionDisplayName = selectedSectionData?.name || selectedSection;
   const currentCustomers = selectedSectionData?.customers_served || 0;
+
+  //strict assign 
+  useEffect(() => {
+  const loadUserSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('strict_assign')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading user settings:', error);
+        return;
+      }
+
+      if (data) {
+        setStrictAssign(data.strict_assign || false);
+      }
+    } catch (error) {
+      console.error('Failed to load user settings:', error);
+    }
+  };
+
+  loadUserSettings();
+}, []);
+
+// ADD: Toggle strict assign function
+const toggleStrictAssign = async () => {
+  setUpdatingStrictAssign(true);
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const newValue = !strictAssign;
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ strict_assign: newValue })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Error updating strict assign setting:', error);
+      showError('Update Failed', 'Failed to update strict assign setting. Please try again.');
+      return;
+    }
+
+    // Update local state
+    setStrictAssign(newValue);
+    
+    console.log(`Strict assign mode ${newValue ? 'enabled' : 'disabled'}`);
+    
+  } catch (error) {
+    console.error('Unexpected error updating strict assign:', error);
+    showError('Update Failed', 'An unexpected error occurred. Please try again.');
+  } finally {
+    setUpdatingStrictAssign(false);
+  }
+};
+
+const onToggleStrictAssign = toggleStrictAssign;
 
 
   // Load service history on component mount
@@ -713,263 +781,304 @@ export default function RestaurantDashboard({
   }
 };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with view toggle */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex justify-center gap-4">
-            {/* View Toggle Icons */}
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`
-                p-4 rounded-full transition-all
-                ${viewMode === 'grid' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }
-              `}
-            >
-              <Home size={28} />
-            </button>
+return (
+  <div className="min-h-screen bg-gray-50">
+    {/* Header with view toggle */}
+    <div className="bg-white shadow-sm border-b">
+      <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="flex justify-center gap-4">
+          {/* View Toggle Icons */}
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`
+              p-4 rounded-full transition-all
+              ${viewMode === 'grid' 
+                ? 'bg-gray-800 text-white' 
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }
+            `}
+          >
+            <Home size={28} />
+          </button>
 
-            <button
-              onClick={() => setViewMode('list')}
-              className={`
-                p-4 rounded-full transition-all
-                ${viewMode === 'list' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }
-              `}
-            >
-              <TableIcon size={28} />
-            </button>
-          </div>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`
+              p-4 rounded-full transition-all
+              ${viewMode === 'list' 
+                ? 'bg-gray-800 text-white' 
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }
+            `}
+          >
+            <TableIcon size={28} />
+          </button>
         </div>
       </div>
+    </div>
 
-      {/* Main Content Area */}
-      <div className="main-content-area flex-1 flex flex-col items-center justify-center p-4 pb-24">
-        {viewMode === 'grid' ? (
-          <>
-           {/* Next Person Indicator */}
-          {nextPersonInfo && (
-             <div 
-              className="text-white p-4 rounded-lg shadow-lg mb-4 max-w-[90vw] border-3 border-black animate-pulse-opacity"
+    {/* Main Content Area */}
+    <div className="main-content-area flex-1 flex flex-col items-center justify-center p-4 pb-24">
+      {viewMode === 'grid' ? (
+        <>
+         {/* Next Person Indicator */}
+        <div className="bg-white p-4 rounded-lg shadow flex flex-col items-center">
+        {/* Next Person Indicator + Strict Assign Toggle */}
+        {nextPersonInfo && (
+          <div className="flex items-center gap-4 mb-4 justify-center">
+            {/* Next Person Indicator */}
+            <div 
+              className="text-white p-4 rounded-lg shadow-lg border-3 border-black animate-pulse-opacity flex-1"
               style={{ 
-               background: `linear-gradient(to right, ${nextPersonInfo.sectionColor || '#3b82f6'}, ${nextPersonInfo.sectionColor || '#2563eb'})` 
+                background: `linear-gradient(to right, ${nextPersonInfo.sectionColor || '#3b82f6'}, ${nextPersonInfo.sectionColor || '#2563eb'})` 
               }}
             >
               <div className="text-center">
                 <div className="text-xl font-bold">{nextPersonInfo.sectionName}'s turn</div>
               </div>
             </div>
-          )}
-          <GridView 
-            user = {user}
-            layout={layout}
-            sections={sections}
-            tables={tables}
-            partySize={partySize}
-            onUpdateTable={updateTable}
-            onCreateServiceHistory={addServiceHistoryEntry}
-            onCompleteService={completeService}
-            onMoveService={moveService}
-            onTriggerAutoAssign={handleTriggerAutoAssignFromGrid}
-            onUpdateSection={updateSection}
-          />
-          </>
-        ) : (
-          <TableView 
-            layout={layout}
-            sections={sections}
-            tables={tables}
-            partySize={partySize}
-            user={user} // Add this line
-            onUpdateTable={updateTable}
-            onUpdateSection={updateSection}
-            serviceHistory={serviceHistory}
-            onUpdateServiceHistory={updateServiceHistory}
-          />
+
+            {/* Strict Assign Toggle */}
+            <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div>
+                  <span className="text-sm font-medium text-gray-900">
+                    Strict:{" "}
+                  </span>
+                  <span className={`text-sm font-bold ${strictAssign ? "text-green-600" : "text-red-600"}`}>
+                    {strictAssign ? "ON" : "OFF"}
+                  </span>
+                </div>
+                <button
+                  onClick={onToggleStrictAssign}
+                  disabled={updatingStrictAssign}
+                  className={`
+                    relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent 
+                    transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    ${strictAssign ? 'bg-blue-600' : 'bg-gray-200'}
+                  `}
+                >
+                  <span
+                    className={`
+                      pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 
+                      transition duration-200 ease-in-out
+                      ${strictAssign ? 'translate-x-5' : 'translate-x-0'}
+                    `}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
-      </div>
-
-      {/* Bottom Controls - Fixed height footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg h-20">
-        <div className="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
-          {/* Party Size Controls */}
-          <div className="flex items-center gap-6">
-            <span className="text-lg font-semibold text-gray-700">
-              Number of People
-            </span>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={decrementPartySize}
-                className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-              >
-                <span className="text-xl font-bold">−</span>
-              </button>
-              
-              <div className="w-16 h-12 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-white">
-                <span className="text-xl font-bold">{partySize}</span>
-              </div>
-              
-              <button
-                onClick={incrementPartySize}
-                className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-              >
-                <span className="text-xl font-bold">+</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Auto Assign Button */}
-          <button
-            onClick={handleAutoAssign}
-            className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-semibold text-lg transition-colors"
-          >
-            Auto Assign
-          </button>
+        <GridView 
+          user={user}
+          layout={layout}
+          sections={sections}
+          tables={tables}
+          partySize={partySize}
+          onUpdateTable={updateTable}
+          onCreateServiceHistory={addServiceHistoryEntry}
+          onCompleteService={completeService}
+          onMoveService={moveService}
+          onTriggerAutoAssign={handleTriggerAutoAssignFromGrid}
+          onUpdateSection={updateSection}
+          strictAssign={strictAssign}  // ADD THIS
+          onToggleStrictAssign={onToggleStrictAssign}  // ADD THIS
+          updatingStrictAssign={updatingStrictAssign}  // ADD THIS
+        />
         </div>
-      </div>
-
-      {/* Assignment Popup */}
-      {showAssignPopup && (
-        <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full mx-8 overflow-hidden">
-            {/* Content */}
-            <div className="p-8 space-y-8">
-              {/* Section Dropdown */}
-              <div>
-                <label className="block text-2xl font-bold text-gray-700 mb-4">Section</label>
-                <select
-                  value={selectedSection}
-                  onChange={(e) => handleSectionChange(e.target.value)}
-                  className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
-                >
-                  {sections.map(section => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Table Dropdown */}
-              <div>
-                <label className="block text-2xl font-bold text-gray-700 mb-4">Table</label>
-                <select
-                  value={selectedTable}
-                  onChange={(e) => setSelectedTable(e.target.value)}
-                  className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
-                >
-                  {/* Tables in selected section first */}
-                  {getTablesForPopup(selectedSection).sectionTables.length > 0 && (
-                   <optgroup label={`${sections.find(s => s.id === selectedSection)?.name || selectedSection}'s Tables`}>
-                      {getTablesForPopup(selectedSection).sectionTables.map(table => (
-                        <option key={table.id} value={table.id}>
-                          {table.name || table.id} 
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  
-                  {/* Other section tables */}
-                  {getTablesForPopup(selectedSection).otherSectionTables.length > 0 && (
-                    <optgroup label="Other Section Tables">
-                      {getTablesForPopup(selectedSection).otherSectionTables.map(table => (
-                        <option key={table.id} value={table.id}>
-                          {table.name || table.id} ({sections.find(s => s.id === table.section_id)?.name})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {/* Unassigned overflow tables */}
-                  {getTablesForPopup(selectedSection).unassignedTables.length > 0 && (
-                    <optgroup label="🚨 Overflow Tables (All sections full)">
-                      {getTablesForPopup(selectedSection).unassignedTables.map(table => (
-                        <option key={table.id} value={table.id}>
-                          {table.name || table.id} (Overflow)
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-6">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <span className="text-2xl text-gray-600">People: {partySize}</span>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={decrementPartySize}
-                    className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
-                  >
-                    <span className="text-3xl font-bold">−</span>
-                  </button>
-                  <span className="text-4xl font-bold w-16 text-center">{partySize}</span>
-                  <button
-                    onClick={incrementPartySize}
-                    className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
-                  >
-                    <span className="text-3xl font-bold">+</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Assignment Summary */}
-              <div className="bg-green-50 p-8 rounded-2xl">
-                <div className="text-center">
-                  <div className="text-6xl font-bold text-black-600 mb-4">
-                      {tables.find(t => t.id === selectedTable)?.name || selectedTable} 
-                    </div>
-                    {/* Show if it's an overflow table */}
-                    {tables.find(t => t.id === selectedTable)?.section_id === null && (
-                      <div className="text-2xl font-bold text-orange-600 mb-2">
-                        🚨 OVERFLOW TABLE
-                      </div>
-                    )}
-                    <div className="text-4xl font-bold text-green-600 mb-4">
-                        {sectionDisplayName}:{currentCustomers} → {sectionDisplayName}:{currentCustomers + partySize}
-                    </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="flex space-x-6 p-8 bg-gray-50">
-              <button
-                onClick={() => setShowAssignPopup(false)}
-                className="flex-1 bg-red-500 text-white py-6 px-8 rounded-2xl font-bold text-2xl hover:bg-red-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmAssignment}
-                className="flex-1 bg-green-500 text-white py-6 px-8 rounded-2xl font-bold text-2xl hover:bg-green-600 transition-colors"
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
+        </>
+      ) : (
+        <TableView 
+          layout={layout}
+          sections={sections}
+          tables={tables}
+          partySize={partySize}
+          user={user}
+          onUpdateTable={updateTable}
+          onUpdateSection={updateSection}
+          serviceHistory={serviceHistory}
+          onUpdateServiceHistory={updateServiceHistory}
+        />
       )}
-      
-      <ErrorModal
-        isOpen={errorModal.isOpen}
-        title={errorModal.title}
-        message={errorModal.message}
-        onClose={() => setErrorModal({ isOpen: false, title: '', message: '' })}
-      />
     </div>
-  );
+
+    {/* Bottom Controls - Fixed height footer */}
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg h-20">
+      <div className="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
+        {/* Party Size Controls */}
+        <div className="flex items-center gap-6">
+          <span className="text-lg font-semibold text-gray-700">
+            Number of People
+          </span>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={decrementPartySize}
+              className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-xl font-bold">−</span>
+            </button>
+            
+            <div className="w-16 h-12 border-2 border-gray-300 rounded-lg flex items-center justify-center bg-white">
+              <span className="text-xl font-bold">{partySize}</span>
+            </div>
+            
+            <button
+              onClick={incrementPartySize}
+              className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-xl font-bold">+</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Auto Assign Button */}
+        <button
+          onClick={handleAutoAssign}
+          className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-semibold text-lg transition-colors"
+        >
+          Auto Assign
+        </button>
+      </div>
+    </div>
+
+    {/* Assignment Popup */}
+    {showAssignPopup && (
+      <div className="fixed inset-0 backdrop-brightness-75 backdrop-opacity-600 backdrop-blur-xs flex items-center justify-center z-50">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full mx-8 overflow-hidden">
+          {/* Content */}
+          <div className="p-8 space-y-8">
+            {/* Section Dropdown */}
+            <div>
+              <label className="block text-2xl font-bold text-gray-700 mb-4">Section</label>
+              <select
+                value={selectedSection}
+                onChange={(e) => handleSectionChange(e.target.value)}
+                className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
+              >
+                {sections.map(section => (
+                  <option key={section.id} value={section.id}>
+                    {section.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Table Dropdown */}
+            <div>
+              <label className="block text-2xl font-bold text-gray-700 mb-4">Table</label>
+              <select
+                value={selectedTable}
+                onChange={(e) => setSelectedTable(e.target.value)}
+                className="w-full p-6 border-4 border-purple-200 rounded-2xl bg-white focus:border-purple-400 focus:outline-none text-2xl"
+              >
+                {/* Tables in selected section first */}
+                {getTablesForPopup(selectedSection).sectionTables.length > 0 && (
+                 <optgroup label={`${sections.find(s => s.id === selectedSection)?.name || selectedSection}'s Tables`}>
+                    {getTablesForPopup(selectedSection).sectionTables.map(table => (
+                      <option key={table.id} value={table.id}>
+                        {table.name || table.id} 
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                
+                {/* Other section tables */}
+                {getTablesForPopup(selectedSection).otherSectionTables.length > 0 && (
+                  <optgroup label="Other Section Tables">
+                    {getTablesForPopup(selectedSection).otherSectionTables.map(table => (
+                      <option key={table.id} value={table.id}>
+                        {table.name || table.id} ({sections.find(s => s.id === table.section_id)?.name})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {/* Unassigned overflow tables */}
+                {getTablesForPopup(selectedSection).unassignedTables.length > 0 && (
+                  <optgroup label="🚨 Overflow Tables (All sections full)">
+                    {getTablesForPopup(selectedSection).unassignedTables.map(table => (
+                      <option key={table.id} value={table.id}>
+                        {table.name || table.id} (Overflow)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-6">
+                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-2xl text-gray-600">People: {partySize}</span>
+              </div>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={decrementPartySize}
+                  className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                >
+                  <span className="text-3xl font-bold">−</span>
+                </button>
+                <span className="text-4xl font-bold w-16 text-center">{partySize}</span>
+                <button
+                  onClick={incrementPartySize}
+                  className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                >
+                  <span className="text-3xl font-bold">+</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Assignment Summary */}
+            <div className="bg-green-50 p-8 rounded-2xl">
+              <div className="text-center">
+                <div className="text-6xl font-bold text-black-600 mb-4">
+                    {tables.find(t => t.id === selectedTable)?.name || selectedTable} 
+                  </div>
+                  {/* Show if it's an overflow table */}
+                  {tables.find(t => t.id === selectedTable)?.section_id === null && (
+                    <div className="text-2xl font-bold text-orange-600 mb-2">
+                      🚨 OVERFLOW TABLE
+                    </div>
+                  )}
+                  <div className="text-4xl font-bold text-green-600 mb-4">
+                      {sectionDisplayName}:{currentCustomers} → {sectionDisplayName}:{currentCustomers + partySize}
+                  </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="flex space-x-6 p-8 bg-gray-50">
+            <button
+              onClick={() => setShowAssignPopup(false)}
+              className="flex-1 bg-red-500 text-white py-6 px-8 rounded-2xl font-bold text-2xl hover:bg-red-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmAssignment}
+              className="flex-1 bg-green-500 text-white py-6 px-8 rounded-2xl font-bold text-2xl hover:bg-green-600 transition-colors"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    
+    <ErrorModal
+      isOpen={errorModal.isOpen}
+      title={errorModal.title}
+      message={errorModal.message}
+      onClose={() => setErrorModal({ isOpen: false, title: '', message: '' })}
+    />
+  </div>
+);
 }

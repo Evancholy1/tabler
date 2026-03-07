@@ -443,6 +443,9 @@ interface ExtendedTableViewProps extends ViewProps {
   serviceHistory: ServiceHistoryEntry[];
   onUpdateSection?: (sectionId: string, updates: Partial<Section>) => void;
   onUpdateServiceHistory?: (updatedServiceHistory: ServiceHistoryEntry[]) => void;
+  strictAssign?: boolean; 
+  onToggleStrictAssign?: () => void; 
+  updatingStrictAssign?: boolean; 
 }
 
 export default function TableView({ 

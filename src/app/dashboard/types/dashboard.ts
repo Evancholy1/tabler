@@ -53,4 +53,7 @@ export interface ViewProps {
   onMoveService?: (tableId: string) => Promise<void>; 
   onTriggerAutoAssign?: (preselectedTableId?: string, preselectedSectionId?: string) => void; // Updated signature
   onUpdateSection?: (sectionId: string, updates: Partial<Section>) => void;
+    strictAssign?: boolean; 
+  onToggleStrictAssign?: () => void; 
+  updatingStrictAssign?: boolean; 
 }

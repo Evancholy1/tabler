@@ -340,7 +340,10 @@ export default function GridView({
   onCompleteService,
   onMoveService,
   onTriggerAutoAssign,
-  onUpdateSection
+  onUpdateSection,
+  strictAssign, // ADD THIS
+  onToggleStrictAssign, // ADD THIS
+  updatingStrictAssign 
 }: ViewProps) {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
@@ -808,7 +811,7 @@ export default function GridView({
       // Show confirmation modal for occupied tables
       setManageModal({ isOpen: true, table });
     } else {
-      if (user?.strict_assign && table.section_id) {
+      if (strictAssign && table.section_id) {
         if (onTriggerAutoAssign) {
           onTriggerAutoAssign(table.id, table.section_id);
         }
