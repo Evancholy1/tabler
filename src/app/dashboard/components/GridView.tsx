@@ -501,6 +501,10 @@ export default function GridView({
         return;
       }
 
+      if (onCompleteService) {
+        await onCompleteService(table.id);
+      }
+
       onUpdateTable(table.id, {
         is_taken: false,
         current_party_size: 0
